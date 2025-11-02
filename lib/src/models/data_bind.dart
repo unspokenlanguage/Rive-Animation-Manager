@@ -1,4 +1,5 @@
 import 'package:rive_animation_manager/rive.dart';
+
 /// A data bind option for a Rive file.
 sealed class DataBind {
   const DataBind();

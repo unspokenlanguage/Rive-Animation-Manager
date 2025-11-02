@@ -55,7 +55,7 @@ RiveManager(
 Use the global controller to manipulate animations:
 
 ```dart
-final controller = RiveAnimationController.instance;
+RiveAnimationController controller = RiveAnimationController.instance;
 
 // Update boolean input
 controller.updateBool('myAnimation', 'isHovered', true);

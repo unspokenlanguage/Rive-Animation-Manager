@@ -23,7 +23,7 @@ import '../widgets/rive_manager.dart';
 /// ```
 class RiveAnimationController {
   static final RiveAnimationController _instance =
-  RiveAnimationController._internal();
+      RiveAnimationController._internal();
 
   factory RiveAnimationController() => _instance;
 
@@ -35,8 +35,7 @@ class RiveAnimationController {
   final Map<String, RiveManagerState> _animations = {};
   final Map<String, ImageAsset> _imageAssets = {};
   final Map<String, List<RenderImage>> _imageCache = {};
-  final Map<String, Map<String, Map<String, dynamic>>> _propertyPathCache =
-  {};
+  final Map<String, Map<String, Map<String, dynamic>>> _propertyPathCache = {};
 
   /// Register an animation instance
   void register(String animationId, RiveManagerState state) {
@@ -111,7 +110,7 @@ class RiveAnimationController {
       'imageAssets': _imageAssets.length,
       'cachedImageSets': _imageCache.length,
       'totalCachedImages':
-      _imageCache.values.fold(0, (sum, list) => sum + list.length),
+          _imageCache.values.fold(0, (sum, list) => sum + list.length),
       'animationsWithPropertyCache': _propertyPathCache.length,
       'totalCachedPropertyPaths': totalCachedPaths,
     };
@@ -129,7 +128,8 @@ class RiveAnimationController {
           image.dispose();
         } catch (_) {}
       }
-      LogManager.addLog('Cleared ${cache.length} cached images for $animationId');
+      LogManager.addLog(
+          'Cleared ${cache.length} cached images for $animationId');
     }
 
     _propertyPathCache.remove(animationId);
@@ -140,10 +140,10 @@ class RiveAnimationController {
   ///
   /// Supports: number, boolean, string, color, enum, trigger, and image types
   Future<bool> updateDataBindingProperty(
-      String animationId,
-      String propertyName,
-      dynamic newValue,
-      ) async {
+    String animationId,
+    String propertyName,
+    dynamic newValue,
+  ) async {
     final state = _animations[animationId];
     if (state == null) {
       LogManager.addLog(
@@ -155,7 +155,7 @@ class RiveAnimationController {
 
     // USE PUBLIC GETTER
     final propertyInfo = state.properties.firstWhere(
-          (prop) => prop['name'] == propertyName,
+      (prop) => prop['name'] == propertyName,
       orElse: () => <String, dynamic>{},
     );
 
@@ -184,10 +184,10 @@ class RiveAnimationController {
   ///
   /// Caches property paths for performance optimization
   Future<bool> updateNestedProperty(
-      String animationId,
-      String fullPath,
-      dynamic newValue,
-      ) async {
+    String animationId,
+    String fullPath,
+    dynamic newValue,
+  ) async {
     final state = _animations[animationId];
     if (state == null) {
       LogManager.addLog('Animation $animationId not found', isExpected: false);
@@ -215,7 +215,8 @@ class RiveAnimationController {
       final propertyInstance = cachedProperty['property'];
       final propertyType = cachedProperty['type'] as String;
 
-      LogManager.addLog('Using cached property path: $cacheKey', isExpected: true);
+      LogManager.addLog('Using cached property path: $cacheKey',
+          isExpected: true);
 
       return await _updatePropertyInstance(
         propertyInstance,
@@ -228,10 +229,10 @@ class RiveAnimationController {
     }
 
     Map<String, dynamic>? findNestedProperty(
-        List<Map<String, dynamic>> props,
-        List<String> path,
-        int index,
-        ) {
+      List<Map<String, dynamic>> props,
+      List<String> path,
+      int index,
+    ) {
       if (index >= path.length) return null;
 
       final currentName = path[index];
@@ -242,8 +243,8 @@ class RiveAnimationController {
             return prop;
           }
 
-          final nestedProps = prop['nestedProperties']
-          as List<Map<String, dynamic>>?;
+          final nestedProps =
+              prop['nestedProperties'] as List<Map<String, dynamic>>?;
           if (nestedProps != null) {
             return findNestedProperty(nestedProps, path, index + 1);
           }
@@ -285,18 +286,17 @@ class RiveAnimationController {
   }
 
   Future<bool> _updatePropertyInstance(
-      dynamic propertyInstance,
-      String propertyType,
-      dynamic newValue,
-      Map<String, dynamic> propertyInfo,
-      String propertyName,
-      String animationId,
-      ) async {
+    dynamic propertyInstance,
+    String propertyType,
+    dynamic newValue,
+    Map<String, dynamic> propertyInfo,
+    String propertyName,
+    String animationId,
+  ) async {
     try {
       switch (propertyType) {
         case 'number':
-          if (propertyInstance is ViewModelInstanceNumber &&
-              newValue is num) {
+          if (propertyInstance is ViewModelInstanceNumber && newValue is num) {
             propertyInstance.value = newValue.toDouble();
             propertyInfo['value'] = newValue.toDouble();
             LogManager.addLog(
@@ -333,8 +333,7 @@ class RiveAnimationController {
           break;
 
         case 'color':
-          if (propertyInstance is ViewModelInstanceColor &&
-              newValue is Color) {
+          if (propertyInstance is ViewModelInstanceColor && newValue is Color) {
             propertyInstance.value = newValue;
             propertyInfo['value'] = newValue;
             LogManager.addLog(
@@ -399,15 +398,16 @@ class RiveAnimationController {
   }
 
   Future<bool> _updateImageProperty(
-      String animationId,
-      String propertyName,
-      dynamic value,
-      Map<String, dynamic> propertyInfo,
-      ) async {
+    String animationId,
+    String propertyName,
+    dynamic value,
+    Map<String, dynamic> propertyInfo,
+  ) async {
     try {
       final state = _animations[animationId];
       if (state == null) {
-        LogManager.addLog('Animation $animationId not found', isExpected: false);
+        LogManager.addLog('Animation $animationId not found',
+            isExpected: false);
         return false;
       }
 
@@ -490,7 +490,6 @@ class RiveAnimationController {
         isExpected: true,
       );
       return true;
-
     } catch (e, stack) {
       LogManager.addLog(
         'Error updating image property: $e\n$stack',
@@ -507,7 +506,7 @@ class RiveAnimationController {
 
     // USE PUBLIC GETTER
     final propertyInfo = state.properties.firstWhere(
-          (prop) => prop['name'] == propertyName,
+      (prop) => prop['name'] == propertyName,
       orElse: () => <String, dynamic>{},
     );
 
@@ -637,11 +636,11 @@ class RiveAnimationController {
 
   /// Set text run value in an artboard
   void setTextRunValue(
-      String animationId,
-      String textRunName,
-      String value, {
-        String? path,
-      }) {
+    String animationId,
+    String textRunName,
+    String value, {
+    String? path,
+  }) {
     final state = _animations[animationId];
     // USE PUBLIC GETTER
     if (state?.controller == null) {
@@ -668,10 +667,10 @@ class RiveAnimationController {
 
   /// Get text run value from an artboard
   String? getTextRunValue(
-      String animationId,
-      String textRunName, {
-        String? path,
-      }) {
+    String animationId,
+    String textRunName, {
+    String? path,
+  }) {
     final state = _animations[animationId];
     // USE PUBLIC GETTER
     if (state?.controller == null) {
@@ -740,10 +739,10 @@ class RiveAnimationController {
   ///
   /// Loads multiple images into memory for fast switching without decode overhead
   Future<void> preloadImagesForAnimation(
-      String animationId,
-      List<String> urls,
-      Factory factory,
-      ) async {
+    String animationId,
+    List<String> urls,
+    Factory factory,
+  ) async {
     LogManager.addLog(
       'Starting image preload for $animationId (${urls.length} images)',
       isExpected: true,

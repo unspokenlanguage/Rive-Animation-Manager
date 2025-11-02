@@ -1,10 +1,8 @@
 // lib/src/widgets/rive_manager.dart
 
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-
 
 import '../controller/rive_animation_controller.dart';
 import '../helpers/log_manager.dart';
@@ -48,15 +46,15 @@ class RiveManager extends StatefulWidget {
   // Callbacks
   final void Function(Artboard artboard)? onInit;
   final void Function(int inputIndex, String inputName, dynamic value)?
-  onInputChange;
+      onInputChange;
   final void Function(String inputName, dynamic value)? onHoverAction;
   final void Function(String inputName, dynamic value)? onTriggerAction;
   final void Function(List<Map<String, dynamic>> properties)?
-  onViewModelPropertiesDiscovered;
+      onViewModelPropertiesDiscovered;
   final void Function(String eventName, Event event, String currentState)?
-  onEventChange;
+      onEventChange;
   final void Function(String propertyName, String propertyType, dynamic value)?
-  onDataBindingChange;
+      onDataBindingChange;
 
   final VoidCallback? onAnimationComplete;
 
@@ -159,14 +157,14 @@ class RiveManagerState extends State<RiveManager> {
       try {
         _controller!.stateMachine.removeEventListener(_onRiveEvent);
       } catch (e) {
-        LogManager.addLog('Error removing event listener: $e', isExpected: false);
+        LogManager.addLog('Error removing event listener: $e',
+            isExpected: false);
       }
     }
 
     RiveAnimationController.instance.deregister(widget.animationId);
 
     _inputChangedHandler?.dispose();
-
 
     for (var propInfo in _properties) {
       _disposeProperty(propInfo);
@@ -177,7 +175,6 @@ class RiveManagerState extends State<RiveManager> {
         }
       }
     }
-
 
     _propertyCache.clear();
 
@@ -718,8 +715,8 @@ class RiveManagerState extends State<RiveManager> {
 
     LogManager.addLog(
       'DEBUG: File state for ${widget.animationId}: '
-          'file=${_file != null}, '
-          'viewModelCount=${_file?.viewModelCount ?? "null"}',
+      'file=${_file != null}, '
+      'viewModelCount=${_file?.viewModelCount ?? "null"}',
       isExpected: true,
     );
 
@@ -872,7 +869,7 @@ class RiveManagerState extends State<RiveManager> {
 
     LogManager.addLog(
       'ViewModel processing complete for ${widget.animationId}: '
-          'Processed ${_properties.length}/${vmInstance.properties.length} properties',
+      'Processed ${_properties.length}/${vmInstance.properties.length} properties',
       isExpected: true,
     );
   }

@@ -64,7 +64,7 @@ rive_animation_manager/
 ### Dependencies
 - ✅ Defined in pubspec.yaml:
   - flutter: sdk
-  - rive: ^0.13.0
+  - rive: ^0.0.16
   - http: ^1.1.0
 - ✅ Proper version constraints
 - ✅ Development dependencies included
