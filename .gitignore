@@ -2,6 +2,6 @@
 .dart_tool/
 build/
 .packages
-pubspec.lock
 *.iml
 .DS_Store
+pubspec.lock
