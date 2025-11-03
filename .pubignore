@@ -1,0 +1,5 @@
+.DS_Store
+lib/.DS_Store
+lib/src/.DS_Store
+lib/src/controller/.DS_Store
+pubspec.lock

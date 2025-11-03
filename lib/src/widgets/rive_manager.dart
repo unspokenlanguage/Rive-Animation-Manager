@@ -859,6 +859,19 @@ class RiveManagerState extends State<RiveManager> {
           'value': enumProp?.value ?? '',
           'property': enumProp,
         });
+      } else if (type == DataType.trigger) {
+        final triggerProp = vmInstance.trigger(name);
+        _properties.add({
+          'name': name,
+          'type': 'trigger',
+          'value': null, // Triggers don't have a value
+          'property': triggerProp,
+        });
+
+        LogManager.addLog(
+          'Discovered trigger property: $name',
+          isExpected: true,
+        );
       } else {
         LogManager.addLog(
           'Unsupported property type for ${widget.animationId}: $name (${type.name})',
@@ -869,10 +882,11 @@ class RiveManagerState extends State<RiveManager> {
 
     LogManager.addLog(
       'ViewModel processing complete for ${widget.animationId}: '
-      'Processed ${_properties.length}/${vmInstance.properties.length} properties',
+          'Processed ${_properties.length}/${vmInstance.properties.length} properties',
       isExpected: true,
     );
   }
+
 
   /// Public API: Select artboard by name
   void selectArtboardByName(String artboardName) {
@@ -923,14 +937,14 @@ class RiveManagerState extends State<RiveManager> {
       isExpected: true,
     );
   }
-
   void _disposeProperty(Map<String, dynamic> propInfo) {
     final prop = propInfo['property'];
     if (prop is ViewModelInstanceNumber ||
         prop is ViewModelInstanceBoolean ||
         prop is ViewModelInstanceString ||
         prop is ViewModelInstanceColor ||
-        prop is ViewModelInstanceEnum) {
+        prop is ViewModelInstanceEnum ||
+        prop is ViewModelInstanceTrigger) {
       (prop as dynamic).clearListeners();
       (prop as dynamic).dispose();
     } else if (prop is ViewModelInstance) {
