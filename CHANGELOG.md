@@ -12,6 +12,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Performance profiling tools
 - Extended animation event types
 
+## [1.0.4] - 2025-11-03
+
+### Fixed
+
+- **Trigger Property Discovery**: Fixed missing trigger property discovery in data binding
+  - Trigger properties are now properly discovered and stored in the properties list
+  - Added trigger support in `_processViewModelInstance` method
+  - Trigger properties can now be accessed via `updateDataBindingProperty` with type 'trigger'
+
+### Improved
+
+- **Property Disposal**: Enhanced cleanup to properly dispose trigger properties
+  - Added `ViewModelInstanceTrigger` to the disposal logic
+  - Prevents memory leaks when triggers are used in animations
+
 ## [1.0.2] - 2025-11-01
 
 ### Fixed
