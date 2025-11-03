@@ -300,7 +300,12 @@ class RiveManagerState extends State<RiveManager> {
 
       if (widget.fileLoader != null) {
         LogManager.addLog('Loading via FileLoader for ${widget.animationId}');
-        setState(() => _isInitialized = true);
+        // ✅ FIX: Use addPostFrameCallback
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() => _isInitialized = true);
+          }
+        });
         return;
       }
 
@@ -333,7 +338,15 @@ class RiveManagerState extends State<RiveManager> {
           isExpected: false,
         );
       }
-      setState(() => _isInitialized = true);
+
+      // ✅ FIX: Use addPostFrameCallback
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() => _isInitialized = true);
+          }
+        });
+      }
     } catch (e) {
       LogManager.addLog(
         'RiveManager init failed for ${widget.animationId}: $e',
@@ -357,7 +370,6 @@ class RiveManagerState extends State<RiveManager> {
       );
 
       _controller = RiveWidgetController(_file!);
-
       _controller?.stateMachine.addEventListener(_onRiveEvent);
 
       await _discoverArtboards();
@@ -374,7 +386,14 @@ class RiveManagerState extends State<RiveManager> {
         );
       }
 
-      setState(() => _isInitialized = true);
+      // ✅ FIX: Use addPostFrameCallback
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() => _isInitialized = true);
+          }
+        });
+      }
 
       LogManager.addLog(
         'Standard Rive file initialization complete for: ${widget.animationId}',
@@ -438,7 +457,14 @@ class RiveManagerState extends State<RiveManager> {
         widget.onInit!(_controller!.artboard);
       }
 
-      setState(() => _isInitialized = true);
+      // ✅ FIX: Use addPostFrameCallback
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() => _isInitialized = true);
+          }
+        });
+      }
 
       LogManager.addLog(
         'Image replacement Rive file initialization complete for: ${widget.animationId}',
@@ -564,9 +590,14 @@ class RiveManagerState extends State<RiveManager> {
           widget.onInit!(_controller!.artboard);
         }
 
+        // ✅ FIX: Use addPostFrameCallback instead of setState
         if (mounted) {
-          setState(() {
-            _isInitialized = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                _isInitialized = true;
+              });
+            }
           });
         }
 
@@ -882,11 +913,10 @@ class RiveManagerState extends State<RiveManager> {
 
     LogManager.addLog(
       'ViewModel processing complete for ${widget.animationId}: '
-          'Processed ${_properties.length}/${vmInstance.properties.length} properties',
+      'Processed ${_properties.length}/${vmInstance.properties.length} properties',
       isExpected: true,
     );
   }
-
 
   /// Public API: Select artboard by name
   void selectArtboardByName(String artboardName) {
@@ -937,6 +967,7 @@ class RiveManagerState extends State<RiveManager> {
       isExpected: true,
     );
   }
+
   void _disposeProperty(Map<String, dynamic> propInfo) {
     final prop = propInfo['property'];
     if (prop is ViewModelInstanceNumber ||

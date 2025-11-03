@@ -12,6 +12,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Performance profiling tools
 - Extended animation event types
 
+
+## [1.0.5] - 2025-11-03
+
+### Fixed
+
+- **setState() During Build Phase**: Fixed critical Flutter error by wrapping all async/post-initialization `setState()` calls with `WidgetsBinding.instance.addPostFrameCallback()`
+  - Fixed `_initRive()` setState calls during initialization
+  - Fixed `_loadRiveFileStandard()` setState after file loading
+  - Fixed `_loadRiveFileWithImageReplacement()` setState after async operations
+  - Fixed `loadExternalFile()` setState in Future.then() callback
+  - Prevents "setState() called during build" runtime errors
+
+- **Trigger Property Discovery**: Added missing trigger property discovery in data binding
+  - Trigger properties are now properly discovered and stored in the properties list
+  - Added trigger support in `_processViewModelInstance` method
+  - Trigger properties can now be accessed via `updateDataBindingProperty` with type 'trigger'
+
+### Improved
+
+- **Widget Lifecycle Safety**: All state updates now respect Flutter's widget lifecycle
+  - Uses proper post-frame callbacks for safe UI updates
+  - Maintains mounted state checks before setState calls
+  - Prevents memory leaks and runtime errors
+
+- **Property Disposal**: Enhanced cleanup to properly dispose trigger properties
+  - Added `ViewModelInstanceTrigger` to the disposal logic
+  - Prevents memory leaks when triggers are used in animations
+
+- **Code Stability**: Overall stability improvements through proper async handling
+- 
 ## [1.0.4] - 2025-11-03
 
 ### Fixed
