@@ -7,11 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned
-- Additional state machine utilities
-- Performance profiling tools
-- Extended animation event types
+## [1.0.8] - 2025-11-04
 
+### Added
+- **Complete Property Discovery System**
+  - Flat properties fully supported (v1.0.7)
+  - Nested ViewModels now fully supported (v1.0.8) ⚡
+  - Together = complete Rive ViewModel coverage
+  - Handles all property types at all nesting levels
+  
 ## [1.0.7]
 
 ### Added
@@ -264,7 +268,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Release Date | Status     | Highlights                                        |
 |---------|--------------|------------|---------------------------------------------------|
-| 1.0.7   | 2025-11-04   | Latest     | onDataBindingChange fully implemented ⚡         |
+| 1.0.8   | 2025-11-04   | Latest     | Nested properties + lint-free code ✅             |
+| 1.0.7   | 2025-11-04   | Stable     | onDataBindingChange fully implemented ⚡         |
 | 1.0.6   | 2025-11-01   | Stable     | Type annotation fixes                            |
 | 1.0.5   | 2025-11-01   | Stable     | setState() lifecycle fixes + trigger support     |
 | 1.0.4   | 2025-10-31   | Stable     | Trigger property discovery                       |

@@ -938,6 +938,24 @@ class RiveManagerState extends State<RiveManager> {
           'Discovered trigger property: $name',
           isExpected: true,
         );
+      } else if (type == DataType.viewModel) {
+        // ✅ NEW: HANDLE NESTED VIEWMODELS!
+        final nestedVM = vmInstance.viewModel(name);
+        if (nestedVM != null) {
+          _properties.add({
+            'name': name,
+            'type': 'viewModel',
+            'value': null,
+            'property': nestedVM,
+            'nestedProperties':
+                _discoverNestedProperties(nestedVM, name), // ✅ RECURSIVE!
+          });
+
+          LogManager.addLog(
+            'Discovered nested ViewModel property: $name',
+            isExpected: true,
+          );
+        }
       } else {
         LogManager.addLog(
           'Unsupported property type for ${widget.animationId}: $name (${type.name})',
@@ -951,6 +969,102 @@ class RiveManagerState extends State<RiveManager> {
       'Processed ${_properties.length}/${vmInstance.properties.length} properties',
       isExpected: true,
     );
+  }
+
+  /// Discover nested ViewModel properties recursively
+  List<Map<String, dynamic>> _discoverNestedProperties(
+    ViewModelInstance nestedVM,
+    String parentName,
+  ) {
+    List<Map<String, dynamic>> nestedProps = [];
+    int processedCount = 0;
+
+    for (var propDesc in nestedVM.properties) {
+      final propType = propDesc.type;
+      final propName = propDesc.name;
+      final fullPath = '$parentName/$propName';
+
+      Map<String, dynamic> nestedInfo = {
+        'name': propName,
+        'fullPath': fullPath,
+        'type': propType.name,
+        'dataType': propType,
+      };
+
+      try {
+        switch (propType) {
+          case DataType.number:
+            final prop = nestedVM.number(propName);
+            if (prop != null) {
+              nestedInfo['property'] = prop;
+              nestedInfo['value'] = prop.value;
+              prop.addListener((newValue) {
+                if (mounted) {
+                  setState(() => nestedInfo['value'] = newValue);
+                }
+              });
+              processedCount++;
+            }
+            break;
+
+          case DataType.boolean:
+            final prop = nestedVM.boolean(propName);
+            if (prop != null) {
+              nestedInfo['property'] = prop;
+              nestedInfo['value'] = prop.value;
+              prop.addListener((newValue) {
+                if (mounted) {
+                  setState(() => nestedInfo['value'] = newValue);
+                }
+              });
+              processedCount++;
+            }
+            break;
+
+          case DataType.string:
+            final prop = nestedVM.string(propName);
+            if (prop != null) {
+              nestedInfo['property'] = prop;
+              nestedInfo['value'] = prop.value;
+              prop.addListener((newValue) {
+                if (mounted) {
+                  setState(() => nestedInfo['value'] = newValue);
+                }
+              });
+              processedCount++;
+            }
+            break;
+
+          case DataType.viewModel:
+            final deepNestedVM = nestedVM.viewModel(propName);
+            if (deepNestedVM != null) {
+              nestedInfo['property'] = deepNestedVM;
+              // ✅ RECURSIVE CALL FOR DEEPLY NESTED PROPERTIES!
+              nestedInfo['nestedProperties'] =
+                  _discoverNestedProperties(deepNestedVM, fullPath);
+              processedCount++;
+            }
+            break;
+
+          default:
+            break;
+        }
+
+        nestedProps.add(nestedInfo);
+      } catch (e) {
+        LogManager.addLog(
+          'Error processing nested property "$fullPath" for ${widget.animationId}: $e',
+          isExpected: false,
+        );
+      }
+    }
+
+    LogManager.addLog(
+      'Nested property discovery complete for $parentName in ${widget.animationId}: $processedCount properties',
+      isExpected: true,
+    );
+
+    return nestedProps;
   }
 
   /// Public API: Select artboard by name
