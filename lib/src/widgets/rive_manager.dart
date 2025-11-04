@@ -95,7 +95,6 @@ class RiveManagerState extends State<RiveManager> {
   bool _isInitializing = false;
   final Map<String, Map<String, dynamic>> _propertyCache = {};
 
-  //String _previousStateName = '';
   String _currentStateName = '';
   bool _isInitialized = false;
 
@@ -284,11 +283,14 @@ class RiveManagerState extends State<RiveManager> {
     if (_isInitialized || _isInitializing) return;
     _isInitializing = true;
 
+    LogManager.markBuildPhaseStart();
+
     if (_isInitialized) {
       LogManager.addLog(
         'RiveManager already initialized for: ${widget.animationId}',
         isExpected: true,
       );
+      LogManager.markBuildPhaseEnd();
       return;
     }
 
@@ -300,12 +302,12 @@ class RiveManagerState extends State<RiveManager> {
 
       if (widget.fileLoader != null) {
         LogManager.addLog('Loading via FileLoader for ${widget.animationId}');
-        // ✅ FIX: Use addPostFrameCallback
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             setState(() => _isInitialized = true);
           }
         });
+        LogManager.markBuildPhaseEnd();
         return;
       }
 
@@ -315,6 +317,7 @@ class RiveManagerState extends State<RiveManager> {
           isExpected: true,
         );
         loadExternalFile(widget.externalFile!);
+        LogManager.markBuildPhaseEnd();
         return;
       }
 
@@ -339,7 +342,6 @@ class RiveManagerState extends State<RiveManager> {
         );
       }
 
-      // ✅ FIX: Use addPostFrameCallback
       if (mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
@@ -347,11 +349,14 @@ class RiveManagerState extends State<RiveManager> {
           }
         });
       }
+
+      LogManager.markBuildPhaseEnd();
     } catch (e) {
       LogManager.addLog(
         'RiveManager init failed for ${widget.animationId}: $e',
         isExpected: false,
       );
+      LogManager.markBuildPhaseEnd();
     } finally {
       _isInitializing = false;
     }
@@ -386,7 +391,6 @@ class RiveManagerState extends State<RiveManager> {
         );
       }
 
-      // ✅ FIX: Use addPostFrameCallback
       if (mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
@@ -457,7 +461,6 @@ class RiveManagerState extends State<RiveManager> {
         widget.onInit!(_controller!.artboard);
       }
 
-      // ✅ FIX: Use addPostFrameCallback
       if (mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
@@ -574,6 +577,8 @@ class RiveManagerState extends State<RiveManager> {
         return;
       }
 
+      LogManager.markBuildPhaseStart();
+
       _controller = RiveWidgetController(_file!);
       _isInitialized = false;
       inputs.clear();
@@ -590,7 +595,6 @@ class RiveManagerState extends State<RiveManager> {
           widget.onInit!(_controller!.artboard);
         }
 
-        // ✅ FIX: Use addPostFrameCallback instead of setState
         if (mounted) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
@@ -605,12 +609,15 @@ class RiveManagerState extends State<RiveManager> {
           'External file loaded successfully for ${widget.animationId}',
           isExpected: true,
         );
+
+        LogManager.markBuildPhaseEnd();
       });
     } catch (e) {
       LogManager.addLog(
         'Failed to load external file for ${widget.animationId}: $e',
         isExpected: false,
       );
+      LogManager.markBuildPhaseEnd();
     }
   }
 
@@ -657,6 +664,8 @@ class RiveManagerState extends State<RiveManager> {
       return;
     }
 
+    LogManager.markBuildPhaseStart();
+
     int index = 0;
     try {
       while (true) {
@@ -690,6 +699,8 @@ class RiveManagerState extends State<RiveManager> {
         'Error during input discovery for ${widget.animationId}: $e',
         isExpected: false,
       );
+    } finally {
+      LogManager.markBuildPhaseEnd();
     }
   }
 
@@ -744,27 +755,29 @@ class RiveManagerState extends State<RiveManager> {
       return;
     }
 
-    LogManager.addLog(
-      'DEBUG: File state for ${widget.animationId}: '
-      'file=${_file != null}, '
-      'viewModelCount=${_file?.viewModelCount ?? "null"}',
-      isExpected: true,
-    );
-
-    if (_file == null || _file!.viewModelCount == 0) {
-      LogManager.addLog(
-        'No ViewModels in file for ${widget.animationId} - skipping data binding',
-        isExpected: true,
-      );
-      return;
-    }
-
-    LogManager.addLog(
-      'Found ${_file!.viewModelCount} ViewModels in file for ${widget.animationId}',
-      isExpected: true,
-    );
+    LogManager.markBuildPhaseStart();
 
     try {
+      LogManager.addLog(
+        'DEBUG: File state for ${widget.animationId}: '
+        'file=${_file != null}, '
+        'viewModelCount=${_file?.viewModelCount ?? "null"}',
+        isExpected: true,
+      );
+
+      if (_file == null || _file!.viewModelCount == 0) {
+        LogManager.addLog(
+          'No ViewModels in file for ${widget.animationId} - skipping data binding',
+          isExpected: true,
+        );
+        return;
+      }
+
+      LogManager.addLog(
+        'Found ${_file!.viewModelCount} ViewModels in file for ${widget.animationId}',
+        isExpected: true,
+      );
+
       try {
         _viewModelInstance = _controller?.dataBind(DataBind.auto());
 
@@ -829,6 +842,8 @@ class RiveManagerState extends State<RiveManager> {
         'Error discovering data binding for ${widget.animationId}: $e',
         isExpected: false,
       );
+    } finally {
+      LogManager.markBuildPhaseEnd();
     }
   }
 
@@ -845,6 +860,10 @@ class RiveManagerState extends State<RiveManager> {
           'value': stringProp?.value ?? '',
           'property': stringProp,
         });
+
+        stringProp?.addListener((value) {
+          widget.onDataBindingChange?.call(name, 'string', value);
+        });
       } else if (type == DataType.number) {
         final numberProp = vmInstance.number(name);
         _properties.add({
@@ -852,6 +871,10 @@ class RiveManagerState extends State<RiveManager> {
           'type': 'number',
           'value': numberProp?.value ?? 0.0,
           'property': numberProp,
+        });
+
+        numberProp?.addListener((value) {
+          widget.onDataBindingChange?.call(name, 'number', value);
         });
       } else if (type == DataType.boolean) {
         final boolProp = vmInstance.boolean(name);
@@ -861,6 +884,10 @@ class RiveManagerState extends State<RiveManager> {
           'value': boolProp?.value ?? false,
           'property': boolProp,
         });
+
+        boolProp?.addListener((value) {
+          widget.onDataBindingChange?.call(name, 'boolean', value);
+        });
       } else if (type == DataType.color) {
         final colorProp = vmInstance.color(name);
         _properties.add({
@@ -868,6 +895,10 @@ class RiveManagerState extends State<RiveManager> {
           'type': 'color',
           'value': colorProp?.value ?? Colors.transparent,
           'property': colorProp,
+        });
+
+        colorProp?.addListener((value) {
+          widget.onDataBindingChange?.call(name, 'color', value);
         });
       } else if (type == DataType.image) {
         final imageProp = vmInstance.image(name);
@@ -890,12 +921,16 @@ class RiveManagerState extends State<RiveManager> {
           'value': enumProp?.value ?? '',
           'property': enumProp,
         });
+
+        enumProp?.addListener((value) {
+          widget.onDataBindingChange?.call(name, 'enumType', value);
+        });
       } else if (type == DataType.trigger) {
         final triggerProp = vmInstance.trigger(name);
         _properties.add({
           'name': name,
           'type': 'trigger',
-          'value': null, // Triggers don't have a value
+          'value': null,
           'property': triggerProp,
         });
 

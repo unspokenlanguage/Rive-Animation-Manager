@@ -12,11 +12,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Performance profiling tools
 - Extended animation event types
 
+## [1.0.7]
+
+### Added
+
+- **onDataBindingChange Callback Implementation**: Previously defined but unused callback now fully functional
+  - Added property listeners in `_processViewModelInstance()` for real-time property value updates
+  - Supports String, Number, Boolean, Color, and Enum property types
+  - Fires immediately when property values change in the animation
+  - Enables reactive UI updates based on animation state changes
+
+- **Property Listener System**: Automatic property change detection
+  - Type-safe listener signatures for each property type
+  - String properties: `stringProp?.addListener((value) { ... })`
+  - Number properties: `numberProp?.addListener((value) { ... })`
+  - Boolean properties: `boolProp?.addListener((value) { ... })`
+  - Color properties: `colorProp?.addListener((value) { ... })`
+  - Enum properties: `enumProp?.addListener((value) { ... })`
+
+### Fixed
+
+- **Listener Type Signatures**: Fixed callback parameter type mismatches
+  - Corrected signature from `void Function()` to `void Function(T value)`
+  - Proper handling of typed listener parameters for each property type
+  - Eliminated "argument type can't be assigned" compilation errors
+
+- **Property Change Tracking**: Fixed issue where property changes weren't being reported
+  - onDataBindingChange callback now invokes correctly when properties update
+  - Value parameter properly passed to callback function
+  - Multiple property types handled with correct type safety
+
+### Improved
+
+- **Complete Callback System**: All 8 callbacks now fully functional
+  - onInit - Animation initialization
+  - onInputChange - State machine input changes
+  - onHoverAction - Hover/boolean action handling
+  - onTriggerAction - Trigger event firing
+  - onViewModelPropertiesDiscovered - Property discovery
+  - **onDataBindingChange - Real-time property value updates** ⚡ (NEW)
+  - onEventChange - Rive event handling
+  - onAnimationComplete - Animation completion
+
+- **Real-Time Data Binding**: Complete reactive data binding pipeline
+  - Properties update instantly as animation state changes
+  - User interactions trigger immediate property callbacks
+  - UI can react to property changes in real-time
+  - Full support for Rive's data binding system
+
+- **Code Organization**: Enhanced property management
+  - Clear separation of property initialization and listener setup
+  - Type-safe listener implementations
+  - Improved property disposal with proper listener cleanup
+
 ## [1.0.6]
 
 ### Fixed
 
-- Missing type annotation in _paintShared callback: Added explicit Duration type to _paintShared parameter to resolve Dart linter warning and maintain strict type safety.​
+- Missing type annotation in _paintShared callback: Added explicit Duration type to _paintShared parameter to resolve Dart linter warning and maintain strict type safety
 
 ## [1.0.5]
 
@@ -46,7 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Prevents memory leaks when triggers are used in animations
 
 - **Code Stability**: Overall stability improvements through proper async handling
-- 
+
 ## [1.0.4]
 
 ### Fixed
@@ -61,6 +114,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Property Disposal**: Enhanced cleanup to properly dispose trigger properties
   - Added `ViewModelInstanceTrigger` to the disposal logic
   - Prevents memory leaks when triggers are used in animations
+
+## [1.0.3]
+
+### Fixed
+
+- Code formatting compliance with Dart formatter (`dart format .`)
+- Fixed pubspec.yaml URL format (removed markdown link syntax)
+- Fixed empty `flutter:` section in pubspec.yaml (added empty object)
+- Updated CHANGELOG.md formatting for pub.dev compliance
+- Fixed issue_tracker URL to properly point to GitHub issues
+
+### Improved
+
+- Better pub.dev score and validation
+- Improved documentation clarity
+- Enhanced code style consistency
 
 ## [1.0.2]
 
@@ -99,11 +168,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `getLastLogsAsStrings(int count)` - Get last N logs as strings (backward compatible)
   - `addMultipleLogs(List<String> messages)` - Add multiple logs at once
   - `logCount`, `errorCount`, `infoCount` - Get log statistics
-
-- **Backward Compatibility**
-  - Legacy `logs` list still accessible
-  - `logsAsStrings` getter for string-based logs
-  - All existing LogManager methods work unchanged
 
 ### Changed
 
@@ -154,11 +218,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Image Management**
   - Dynamic image replacement at runtime
-  - Multiple image source support:
-    - Asset bundle images
-    - URL-based images
-    - Raw byte data
-    - Pre-decoded RenderImage (fastest)
+  - Multiple image source support (asset, URL, bytes, RenderImage)
   - Image preloading and caching for instant swapping
   - Cache statistics and management
 
@@ -175,37 +235,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Comprehensive `LogManager` for debug logging
   - Cache statistics and performance monitoring
   - Detailed logging of animation lifecycle events
-  - Enable/disable logging functionality
-  - Log history tracking (max 100 logs)
 
 - **File Support**
   - Asset file loading via Flutter's asset system
   - External file support with File objects
   - Custom file loader interface for advanced use cases
 
-- **Documentation**
-  - Full Dart documentation on all public APIs
-  - Comprehensive README with features and API reference
-  - Quick start guide with code examples
-  - Advanced usage patterns and best practices
-  - Troubleshooting guide
-  - 8+ complete working examples
-  - QUICK_REFERENCE.md for fast lookup
-
 ### Features
 
-- ✅ **Global animation state management** - Centralized controller for all animations
-- ✅ **Real-time input callbacks** - Immediate response to input changes
-- ✅ **Automatic property discovery** - Detect all available properties automatically
-- ✅ **Dynamic image updates from multiple sources** - Asset, URL, bytes, or RenderImage
-- ✅ **Performance-optimized caching** - Intelligent caching for properties and images
-- ✅ **Debug logging with real-time monitoring** - Comprehensive logging system
-- ✅ **Complete resource cleanup** - Proper disposal of animations and assets
-- ✅ **Error handling and detailed logging** - Comprehensive error tracking
-- ✅ **Nested property path support** - Access deeply nested properties easily
-- ✅ **Event listener management** - Handle all animation events
-- ✅ **Cache statistics** - Monitor cache usage and performance
-- ✅ **Artboard selection** - Switch between artboards at runtime
+- ✅ Global animation state management
+- ✅ Real-time input callbacks
+- ✅ Automatic property discovery
+- ✅ Dynamic image updates from multiple sources
+- ✅ Performance-optimized caching
+- ✅ Debug logging with real-time monitoring
+- ✅ Complete resource cleanup
+- ✅ Nested property path support
+- ✅ Event listener management
+- ✅ Artboard selection
 
 ### Supported Versions
 
@@ -213,23 +260,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Flutter**: >=3.13.0
 - **Dart**: >=3.0.0
 
-### Technical Details
-
-- Singleton pattern for global controller
-- ValueNotifier-based state updates
-- Performance-optimized property path caching
-- Automatic memory management and cleanup
-- Type-safe API with full null safety
-- Backward compatible with previous Rive versions
-
 ## Version Compatibility
 
 | Version | Release Date | Status     | Highlights                                        |
 |---------|--------------|------------|---------------------------------------------------|
-| 1.0.1   | 2025-11-01   | Latest     | Enhanced LogManager with ValueNotifier support    |
-| 1.0.0   | 2025-11-01   | Stable     | Initial production release                        |
+| 1.0.7   | 2025-11-04   | Latest     | onDataBindingChange fully implemented ⚡         |
+| 1.0.6   | 2025-11-01   | Stable     | Type annotation fixes                            |
+| 1.0.5   | 2025-11-01   | Stable     | setState() lifecycle fixes + trigger support     |
+| 1.0.4   | 2025-10-31   | Stable     | Trigger property discovery                       |
+| 1.0.3   | 2025-10-31   | Stable     | Formatting and pub.dev compliance                |
+| 1.0.2   | 2025-10-31   | Stable     | Formatting and pub.dev compliance                |
+| 1.0.1   | 2025-11-01   | Stable     | Enhanced LogManager with ValueNotifier           |
+| 1.0.0   | 2025-11-01   | Archived   | Initial production release                       |
 
 ## Migration Guide
+
+### From 1.0.6 to 1.0.7
+
+No breaking changes. To use the new onDataBindingChange callback:
+
+```dart
+RiveManager(
+  animationId: 'myAnimation',
+  riveFilePath: 'assets/animations/my.riv',
+  // ✅ NEW: Callback now fires when properties change
+  onDataBindingChange: (propertyName, propertyType, value) {
+    print('Property $propertyName changed to $value');
+    
+    // Update your UI in real-time
+    setState(() {
+      _propertyValues[propertyName] = value;
+    });
+  },
+)
+```
 
 ### From 1.0.0 to 1.0.1
 
@@ -251,35 +315,14 @@ ValueListenableBuilder<List<Map<String, dynamic>>>(
     // Build UI with logs
   },
 );
-
-// New: Access detailed log information
-final logs = LogManager.logs;
-final message = logs[0]['message'];
-final timestamp = logs[0]['timestamp'];
-final isExpected = logs[0]['isExpected'];
 ```
-
-## Future Roadmap
-
-### Planned for v1.1.0
-
-- StateManager integration for complex animations
-- Animation timeline control (pause, resume, seek)
-- Batch operations for multiple animations
-- Performance profiling tools
-
-### Planned for v2.0.0
-
-- Breaking changes for enhanced stability (if needed)
-- Extended Rive version support (>1.0)
-- Advanced animation composition features
 
 ## Support
 
 For issues, feature requests, or contributions:
 
-- GitHub Issues: [rive_animation_manager/issues](https://github.com/yourusername/rive_animation_manager/issues)
-- GitHub Discussions: [rive_animation_manager/discussions](https://github.com/yourusername/rive_animation_manager/discussions)
+- GitHub Issues: [rive_animation_manager/issues](https://github.com/unspokenlanguage/Rive-Animation-Manager/issues)
+- GitHub Discussions: [rive_animation_manager/discussions](https://github.com/unspokenlanguage/rive_animation_manager/discussions)
 
 ## Contributors
 
