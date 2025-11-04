@@ -12,8 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Performance profiling tools
 - Extended animation event types
 
+## [1.0.6]
 
-## [1.0.5] - 2025-11-03
+### Fixed
+
+- Missing type annotation in _paintShared callback: Added explicit Duration type to _paintShared parameter to resolve Dart linter warning and maintain strict type safety.​
+
+## [1.0.5]
 
 ### Fixed
 
@@ -42,7 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Code Stability**: Overall stability improvements through proper async handling
 - 
-## [1.0.4] - 2025-11-03
+## [1.0.4]
 
 ### Fixed
 
@@ -57,7 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `ViewModelInstanceTrigger` to the disposal logic
   - Prevents memory leaks when triggers are used in animations
 
-## [1.0.2] - 2025-11-01
+## [1.0.2]
 
 ### Fixed
 
@@ -73,7 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved documentation clarity
 - Enhanced code style consistency
 
-## [1.0.1] - 2025-11-01
+## [1.0.1]
 
 ### Added
 
@@ -118,7 +123,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Better code organization in LogManager
 - Enhanced error tracking and logging capabilities
 
-## [1.0.0] - 2025-11-01
+## [1.0.0]
 
 ### Added
 
