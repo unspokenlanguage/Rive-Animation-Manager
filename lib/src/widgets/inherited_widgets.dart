@@ -27,7 +27,7 @@ class SharedRenderTexture {
   });
 
   /// Paint the shared render texture.
-  void _paintShared(_) {
+  void _paintShared(Duration _) {
     texture.clear(backgroundColor);
     for (final painter in painters) {
       painter.paintIntoSharedTexture(texture);

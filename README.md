@@ -21,7 +21,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  rive_animation_manager: ^1.0.0
+  rive_animation_manager: ^latest_version
 ```
 
 Then run:
