@@ -506,7 +506,6 @@ class RiveAnimationController {
         isExpected: true,
       );
       return true;
-
     } catch (e, stack) {
       LogManager.addLog(
         'Error updating image property: $e\n$stack',

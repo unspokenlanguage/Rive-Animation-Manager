@@ -1,11 +1,11 @@
-# Rive Animation Manager - Quick Reference
+# Rive Animation Manager - Quick Reference (v1.0.10+)
 
 ## Installation
 
 Add to `pubspec.yaml`:
 ```yaml
 dependencies:
-  rive_animation_manager: ^1.0.0
+  rive_animation_manager: ^1.0.10
 ```
 
 ## Basic Import
@@ -75,7 +75,43 @@ dynamic value = controller.getDataBindingPropertyValue(
 );
 ```
 
-### Image Management
+### Image Management (v1.0.9+)
+
+#### Type-Safe Image Updates
+```dart
+// Type 1: Local file path
+await controller.updateImageProperty(
+  'animationId',
+  'propertyName',
+  '/path/to/image.png',
+);
+
+// Type 2: URL (http/https)
+await controller.updateImageProperty(
+  'animationId',
+  'propertyName',
+  'https://example.com/image.png',
+);
+
+// Type 3: Raw bytes (Uint8List)
+final bytes = await File('path/to/image.png').readAsBytes();
+await controller.updateImageProperty(
+  'animationId',
+  'propertyName',
+  bytes,
+);
+
+// Type 4: Pre-decoded RenderImage (fastest)
+final bytes = await File('path/to/image.png').readAsBytes();
+final renderImage = await Factory.rive.decodeImage(bytes);
+await controller.updateImageProperty(
+  'animationId',
+  'propertyName',
+  renderImage,
+);
+```
+
+#### Legacy Image Methods (Still Supported)
 ```dart
 // From asset
 await state.updateImageFromAsset('assets/images/image.png');
@@ -102,6 +138,34 @@ await controller.preloadImagesForAnimation(
 // Switch to cached image
 controller.updateImageFromCache('animationId', 0);
 ```
+
+## File Loading Options (v1.0.10+)
+
+### Asset File (Recommended)
+```dart
+RiveManager(
+  animationId: 'assetAnimation',
+  riveFilePath: 'assets/animations/my.riv',
+)
+```
+
+### External File
+```dart
+RiveManager(
+  animationId: 'externalAnimation',
+  externalFile: File('/path/to/animation.riv'),
+)
+```
+
+### FileLoader (Custom Loading - NEW in v1.0.10!)
+```dart
+RiveManager(
+  animationId: 'customAnimation',
+  fileLoader: MyCustomFileLoader(),
+)
+```
+
+**What's New (v1.0.10):** FileLoader now fully works with input discovery, property discovery, and global registration!
 
 ## Callbacks
 
@@ -145,6 +209,14 @@ onViewModelPropertiesDiscovered: (List<Map<String, dynamic>> props) {
 }
 ```
 
+### onDataBindingChange (v1.0.7+)
+Called when data binding property changes.
+```dart
+onDataBindingChange: (String propertyName, String propertyType, dynamic value) {
+  print('$propertyName changed to $value');
+}
+```
+
 ### onEventChange
 Called when Rive event fires.
 ```dart
@@ -161,24 +233,20 @@ RiveManagerState? state = controller.getAnimationState('animationId');
 if (state != null) {
   List<Map> artboards = state.getArtboards();
   Map<String, Input> inputs = state.inputs;
+  List<Map<String, dynamic>> properties = state.properties;
 }
 ```
 
-### Update Nested Properties
+### Update Nested Properties (v1.0.8+)
 ```dart
-// Using '/' separator
+// Using '/' separator (parent/child/grandchild)
 await controller.updateNestedProperty(
   'animationId',
   'parent/child',
   newValue,
 );
 
-// Using '.' separator
-await controller.updateNestedProperty(
-  'animationId',
-  'parent.child',
-  newValue,
-);
+// Recursive discovery works automatically!
 ```
 
 ### Cache Statistics
@@ -202,8 +270,8 @@ controller.clearAllPropertyCaches();
 
 ### Configure
 ```dart
-LogManager.enabled = true;  // Enable/disable
-LogManager.clearLogs();     // Clear all logs
+LogManager.setDebugMode(true);
+LogManager.clearLogs();
 ```
 
 ### Get Logs
@@ -212,11 +280,14 @@ LogManager.clearLogs();     // Clear all logs
 List<String> allLogs = LogManager.logs;
 
 // Last N logs
-List<String> recent = LogManager.getLastLogs(10);
+List<String> recent = LogManager.getLastLogsAsStrings(10);
 
-for (var log in recent) {
-  print(log);
-}
+// Search logs
+List<Map<String, dynamic>> results = LogManager.searchLogs('keyword');
+
+// Export
+String asString = LogManager.exportAsString();
+String asJson = LogManager.exportAsJSON();
 ```
 
 ## Property Types
@@ -232,6 +303,7 @@ Supported data binding property types:
 | `'image'` | Image asset |
 | `'enumType'` | Enum selection |
 | `'trigger'` | Action trigger |
+| `'viewModel'` | Nested ViewModel (v1.0.8+) |
 
 ## Animation Types
 
@@ -251,10 +323,10 @@ enum RiveAnimationType {
 - `cursor: MouseCursor` - Mouse cursor style
 - `layoutScaleFactor: double` - Scale factor
 
-### File Loading
-- `riveFilePath: String?` - Asset path
-- `externalFile: File?` - External file
-- `fileLoader: FileLoader?` - Custom loader
+### File Loading (v1.0.10+)
+- `riveFilePath: String?` - Asset path (sync)
+- `externalFile: File?` - External file (sync)
+- `fileLoader: FileLoader?` - Custom loader (async) ← **Now fully supported!**
 
 ### Features
 - `enableImageReplacement: bool` - Enable dynamic images
@@ -263,11 +335,22 @@ enum RiveAnimationType {
 ## Best Practices
 
 1. **Use Unique IDs**: Always provide unique animation IDs
-2. **Cache Images**: Preload images for frequent updates
-3. **Check Nulls**: Always check if state/property exists
-4. **Dispose**: Package handles automatic cleanup
-5. **Log Issues**: Enable LogManager for debugging
-6. **Error Handling**: Check return values of async operations
+2. **Choose Loading Method**: Asset files for bundled, FileLoader for dynamic
+3. **Cache Images**: Preload images for frequent updates
+4. **Check Nulls**: Always check if state/property exists
+5. **Dispose**: Package handles automatic cleanup
+6. **Log Issues**: Enable LogManager for debugging
+7. **Error Handling**: Check return values of async operations
+
+## Version History
+
+| Version | Release | Key Features |
+|---------|---------|--------------|
+| 1.0.10  | 2025-11-12 | FileLoader full support ✨ |
+| 1.0.9   | 2025-11-11 | Advanced image handling |
+| 1.0.8   | 2025-11-04 | Nested properties |
+| 1.0.7   | 2025-11-04 | Data binding callbacks |
+| 1.0.0   | 2025-11-01 | Initial release |
 
 ## Common Errors
 
@@ -275,6 +358,10 @@ enum RiveAnimationType {
 - ✓ Check file path is correct
 - ✓ Enable logging to see errors
 - ✓ Verify file exists in assets
+
+### FileLoader animation not accessible (v1.0.10 Fixed!)
+- ✓ Now properly registers with controller
+- ✓ Use `RiveAnimationController.instance.getAnimationState('animationId')`
 
 ### Image replacement not working
 - ✓ Set `enableImageReplacement: true`
@@ -308,6 +395,9 @@ class _MyAnimationWidgetState extends State<MyAnimationWidget> {
       },
       onInputChange: (index, name, value) {
         print('Input: $name = $value');
+      },
+      onDataBindingChange: (name, type, value) {
+        print('Property: $name = $value');
       },
       onViewModelPropertiesDiscovered: (props) {
         for (var prop in props) {

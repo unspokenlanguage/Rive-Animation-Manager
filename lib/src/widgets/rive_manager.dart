@@ -1172,10 +1172,30 @@ class RiveManagerState extends State<RiveManager> {
         onFailed: (error, stack) {
           LogManager.addLog('Rive load failed: $error', isExpected: false);
         },
-        onLoaded: (riveLoaded) {
+        onLoaded: (riveLoaded) async {
+          // ✅ STORE THE CONTROLLER AND FILE
+          _controller = riveLoaded.controller;
+          _file = riveLoaded.file;
+
+          // ✅ SETUP EVENT LISTENER
+          _controller?.stateMachine.addEventListener(_onRiveEvent);
+
+          // ✅ DISCOVER INPUTS & PROPERTIES
+          await Future.wait([
+            _discoverInputs(),
+            _discoverDataBindingProperties(),
+          ]);
+
+          // ✅ REGISTER WITH GLOBAL CONTROLLER
+          RiveAnimationController.instance.register(widget.animationId, this);
+
+          // ✅ CALL USER CALLBACK
           widget.onInit?.call(riveLoaded.controller.artboard);
-          LogManager.addLog('Rive loaded: ${widget.animationId}',
-              isExpected: true);
+
+          LogManager.addLog(
+            'FileLoader animation fully initialized: ${widget.animationId}',
+            isExpected: true,
+          );
         },
       );
     }

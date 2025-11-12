@@ -1,4 +1,4 @@
-# Rive Animation Manager - Example Usage
+# Rive Animation Manager - Example Usage (v1.0.10+)
 
 This file demonstrates complete usage patterns for the Rive Animation Manager package.
 
@@ -366,7 +366,84 @@ await controller.updateImageProperty(
 
 ---
 
-## Example 5: Text Updates
+## Example 5: Custom File Loading with FileLoader (v1.0.10+)
+
+### ✨ NEW: FileLoader Support with Full Initialization
+
+```dart
+class FileLoaderExampleScreen extends StatefulWidget {
+  @override
+  State<FileLoaderExampleScreen> createState() =>
+      _FileLoaderExampleScreenState();
+}
+
+class _FileLoaderExampleScreenState extends State<FileLoaderExampleScreen> {
+  final controller = RiveAnimationController.instance;
+  List<Map<String, dynamic>> properties = [];
+  Map<String, Input> inputs = {};
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('FileLoader Animation (v1.0.10+)')),
+      body: RiveManager(
+        animationId: 'fileLoaded',
+        fileLoader: MyCustomFileLoader(), // ✅ Custom loader
+        onInit: (artboard) {
+          print('FileLoader animation ready!');
+        },
+        onInputChange: (index, name, value) {
+          // ✅ NOW WORKS! (Was broken in v1.0.9)
+          print('FileLoader input: $name = $value');
+        },
+        onViewModelPropertiesDiscovered: (discoveredProps) {
+          // ✅ NOW WORKS! (Was broken in v1.0.9)
+          setState(() => properties = discoveredProps);
+          print('FileLoader found ${discoveredProps.length} properties');
+        },
+        onDataBindingChange: (name, type, value) {
+          // ✅ NOW WORKS! (Was broken in v1.0.9)
+          print('FileLoader property $name = $value');
+        },
+      ),
+    );
+  }
+}
+
+/// Custom FileLoader implementation
+class MyCustomFileLoader extends FileLoader {
+  @override
+  Future<File> load(FileAssetLoader loader) async {
+    // Your custom loading logic
+    // Could load from database, network, cache, etc.
+    final bytes = await _getFileBytes();
+    return await loader.load(bytes);
+  }
+
+  Future<List<int>> _getFileBytes() async {
+    // Example: load from custom source
+    // Could be from any source: database, network, etc.
+    return [];
+  }
+}
+```
+
+### What's New in FileLoader Support (v1.0.10)
+
+FileLoader animations now have **complete feature parity** with other loading methods:
+
+✅ **Input Discovery** - All inputs are discovered automatically  
+✅ **Property Discovery** - All ViewModel properties are discovered  
+✅ **Event Listeners** - Event listeners properly attached  
+✅ **Global Registration** - Animation accessible via `RiveAnimationController.instance`  
+✅ **All Callbacks** - `onInit`, `onInputChange`, `onDataBindingChange`, `onEventChange` all work
+
+**Before v1.0.10:** FileLoader worked but was missing discovery and registration  
+**After v1.0.10:** FileLoader works identically to asset and external file loading
+
+---
+
+## Example 6: Text Updates
 
 ```dart
 class TextUpdateScreen extends StatefulWidget {
@@ -441,7 +518,7 @@ class _TextUpdateScreenState extends State<TextUpdateScreen> {
 }
 ```
 
-## Example 6: Event Handling
+## Example 7: Event Handling
 
 ```dart
 class EventHandlingScreen extends StatefulWidget {
@@ -496,7 +573,7 @@ class _EventHandlingScreenState extends State<EventHandlingScreen> {
 }
 ```
 
-## Example 7: Cache Management
+## Example 8: Cache Management
 
 ```dart
 class CacheManagementScreen extends StatefulWidget {
@@ -577,7 +654,7 @@ class _CacheManagementScreenState extends State<CacheManagementScreen> {
 }
 ```
 
-## Example 8: Multiple Animations
+## Example 9: Multiple Animations
 
 ```dart
 class MultipleAnimationsScreen extends StatelessWidget {
@@ -622,11 +699,21 @@ class MultipleAnimationsScreen extends StatelessWidget {
 
 ---
 
-## What's New in v1.0.9
+## What's New in v1.0.10
 
-### Advanced Image Property Handling
+### FileLoader Full Support (v1.0.10)
 
-The image property update system now supports **4 different input types**:
+FileLoader loading method now has **complete feature parity** with other loading methods:
+
+✅ Input discovery for async-loaded animations  
+✅ Property discovery for dynamic binding  
+✅ Event listener setup during async loading  
+✅ Full registration with global controller  
+✅ All callbacks work identically
+
+### Advanced Image Property Handling (v1.0.9+)
+
+The image property update system supports **4 different input types**:
 
 1. **Local File Paths** - String paths to local files
 2. **URLs** - HTTP/HTTPS URLs for remote images

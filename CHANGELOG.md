@@ -7,6 +7,110 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.10]
+
+### Added
+
+- **FileLoader Support with Full Initialization**: Complete async file loading support
+  - Implement full initialization pipeline in `onLoaded()` callback
+  - Support for custom file loading via FileLoader interface
+  - Async initialization for dynamically loaded animations
+
+- **FileLoader Initialization Path**
+  - Input discovery for async-loaded animations
+  - Property discovery for dynamic binding
+  - Event listener setup during async loading
+  - Full registration with global controller
+
+### Fixed
+
+- **FileLoader Registration Issue**: Fixed critical bug where FileLoader-loaded animations weren't registered
+  - Animations loaded via FileLoader now properly register with RiveAnimationController
+  - Input discovery now works for async-loaded files
+  - Data binding properties discovered correctly for FileLoader animations
+  - Event listeners properly attached to async-loaded controllers
+
+- **Async/Sync Loading Parity**: Unified initialization across all loading methods
+  - All three loading paths (asset file, external file, FileLoader) now use identical initialization
+  - Async loading in `onLoaded()` callback matches sync loading in `_initRive()`
+  - Consistent behavior regardless of loading method
+
+### Improved
+
+- **Loading Architecture**: Cleaner separation of sync and async patterns
+  - Synchronous loading: Initialize in `_initRive()` before render
+  - Asynchronous loading: Initialize in `onLoaded()` after file loads
+  - Same initialization, different timing
+
+- **Error Handling**: Better error messages for async loading
+  - Clear logging of async initialization steps
+  - Detailed tracking of FileLoader animation lifecycle
+  - Comprehensive debug information
+
+- **Code Quality**
+  - Reduced code duplication across loading methods
+  - More maintainable initialization pipeline
+  - Clearer async/await patterns
+
+## Why This Fix Matters
+
+**Before v1.0.10:** FileLoader animations worked but were never registered with the global controller, making them inaccessible via `RiveAnimationController.instance`.
+
+**After v1.0.10:** All loading methods (asset, external, FileLoader) now behave identically with full initialization and registration.
+
+### Impact
+
+✅ FileLoader animations now accessible globally  
+✅ All callbacks work with FileLoader (onInit, onInputChange, onEventChange, etc.)  
+✅ Properties and inputs discoverable for FileLoader animations  
+✅ Event listeners properly attached  
+✅ Consistent API across all loading methods
+
+---
+
+## Technical Details
+
+### What Changed
+
+```dart
+// Before: onLoaded() only called callback
+onLoaded: (riveLoaded) {
+  widget.onInit?.call(riveLoaded.controller.artboard);
+}
+
+// After: onLoaded() does full initialization
+onLoaded: (riveLoaded) async {
+  _controller = riveLoaded.controller;
+  _file = riveLoaded.file;
+  _controller?.stateMachine.addEventListener(_onRiveEvent);
+  
+  await Future.wait([
+    _discoverInputs(),
+    _discoverDataBindingProperties(),
+  ]);
+  
+  RiveAnimationController.instance.register(widget.animationId, this);
+  widget.onInit?.call(riveLoaded.controller.artboard);
+}
+```
+
+### Three Loading Paths Now Unified
+
+| Aspect | Asset File | External File | FileLoader |
+|--------|---|---|---|
+| Load timing | Sync in `_initRive()` | Sync in `loadExternalFile()` | Async in `onLoaded()` |
+| Discovery | In load method | In load method | In `onLoaded()` |
+| Registration | In load method | In load method | In `onLoaded()` |
+| Initialization | Before `build()` | Before UI update | After file loads |
+| **Behavior** | ✅ Identical | ✅ Identical | ✅ Now identical |
+
+---
+
+## Migration Guide
+
+### From 1.0.9 to 1.0.10
+No breaking changes! The FileLoader now works the same as other loading methods:
+
 ## [1.0.9]
 
 ### Added
