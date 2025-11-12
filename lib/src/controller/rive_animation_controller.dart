@@ -3,7 +3,7 @@
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:rive_native/rive_native.dart';
-
+import 'dart:io' as io;
 import '../helpers/log_manager.dart';
 import '../widgets/rive_manager.dart';
 
@@ -411,9 +411,7 @@ class RiveAnimationController {
         return false;
       }
 
-      // USE PUBLIC GETTER
       final viewModelInstance = state.viewModelInstance;
-
       if (viewModelInstance == null) {
         LogManager.addLog(
           'ViewModelInstance not found for $animationId',
@@ -433,17 +431,29 @@ class RiveAnimationController {
 
       Uint8List? bytes;
 
+      // ✅ Handle string (file path or URL)
       if (value is String) {
+        // Local file path
         if (!value.startsWith('http')) {
           LogManager.addLog(
-            'Loading image from asset: $value for $propertyName in $animationId',
+            'Loading image from local file: $value',
             isExpected: true,
           );
-          final ByteData data = await rootBundle.load(value);
-          bytes = data.buffer.asUint8List();
-        } else {
+
+          final file = io.File(value);
+          if (!await file.exists()) {
+            LogManager.addLog(
+              'File not found: $value',
+              isExpected: false,
+            );
+            return false;
+          }
+          bytes = await file.readAsBytes();
+        }
+        // URL
+        else {
           LogManager.addLog(
-            'Loading image from URL: $value for $propertyName in $animationId',
+            'Loading image from URL: $value',
             isExpected: true,
           );
           final response = await http.get(Uri.parse(value));
@@ -456,28 +466,33 @@ class RiveAnimationController {
           }
           bytes = response.bodyBytes;
         }
-      } else if (value is RenderImage) {
+      }
+      // Pre-decoded RenderImage
+      else if (value is RenderImage) {
+        imageProperty.value = value;
+        propertyInfo['value'] = value;
         LogManager.addLog(
           'Using pre-decoded RenderImage for $propertyName in $animationId',
           isExpected: true,
         );
-        imageProperty.value = value;
-        propertyInfo['value'] = value;
         return true;
-      } else if (value is Uint8List) {
+      }
+      // Raw bytes
+      else if (value is Uint8List) {
         bytes = value;
       } else {
         LogManager.addLog(
-          'Invalid image value type: ${value.runtimeType} for $propertyName',
+          'Invalid image value type: ${value.runtimeType}',
           isExpected: false,
         );
         return false;
       }
 
+      // ✅ DECODE BYTES TO RENDERIMAGE
       final renderImage = await Factory.rive.decodeImage(bytes);
       if (renderImage == null) {
         LogManager.addLog(
-          'Failed to decode image bytes for $propertyName in $animationId',
+          'Failed to decode image for $propertyName in $animationId',
           isExpected: false,
         );
         return false;
@@ -485,11 +500,13 @@ class RiveAnimationController {
 
       imageProperty.value = renderImage;
       propertyInfo['value'] = renderImage;
+
       LogManager.addLog(
-        'Successfully updated image property $propertyName in $animationId',
+        '✅ Successfully updated image property $propertyName in $animationId',
         isExpected: true,
       );
       return true;
+
     } catch (e, stack) {
       LogManager.addLog(
         'Error updating image property: $e\n$stack',

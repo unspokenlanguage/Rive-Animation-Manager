@@ -153,7 +153,9 @@ class _DataBindingScreenState extends State<DataBindingScreen> {
 }
 ```
 
-## Example 4: Dynamic Image Updates
+## Example 4: Dynamic Image Updates (v1.0.9+)
+
+### ✨ NEW: Type-Safe Image Property Handling
 
 ```dart
 class ImageReplacementScreen extends StatefulWidget {
@@ -165,35 +167,127 @@ class ImageReplacementScreen extends StatefulWidget {
 class _ImageReplacementScreenState extends State<ImageReplacementScreen> {
   final controller = RiveAnimationController.instance;
   int currentImageIndex = 0;
+  bool isLoading = false;
+
   List<String> imageUrls = [
     'https://example.com/image1.png',
     'https://example.com/image2.png',
     'https://example.com/image3.png',
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    _preloadImages();
+  /// Update image from local file path
+  Future<void> _updateImageFromFile(String filePath) async {
+    setState(() => isLoading = true);
+    try {
+      final success = await controller.updateImageProperty(
+        'imageReplacement',
+        'displayImage',
+        filePath, // Local file path
+      );
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Image loaded from file')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      setState(() => isLoading = false);
+    }
   }
 
-  Future<void> _preloadImages() async {
-    await controller.preloadImagesForAnimation(
-      'imageReplacement',
-      imageUrls,
-      Factory.rive,
-    );
+  /// Update image from URL
+  Future<void> _updateImageFromUrl(String url) async {
+    setState(() => isLoading = true);
+    try {
+      final success = await controller.updateImageProperty(
+        'imageReplacement',
+        'displayImage',
+        url, // URL string
+      );
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Image loaded from URL')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      setState(() => isLoading = false);
+    }
   }
 
-  void _switchImage() {
-    currentImageIndex = (currentImageIndex + 1) % imageUrls.length;
-    controller.updateImageFromCache('imageReplacement', currentImageIndex);
+  /// Update image from bytes
+  Future<void> _updateImageFromBytes(Uint8List bytes) async {
+    setState(() => isLoading = true);
+    try {
+      final success = await controller.updateImageProperty(
+        'imageReplacement',
+        'displayImage',
+        bytes, // Raw bytes
+      );
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Image loaded from bytes')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
+
+  /// Update image from pre-decoded RenderImage (fastest)
+  Future<void> _updateImageFromRenderImage(RenderImage renderImage) async {
+    try {
+      final success = await controller.updateImageProperty(
+        'imageReplacement',
+        'displayImage',
+        renderImage, // Pre-decoded RenderImage
+      );
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Image updated (pre-decoded)')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+
+  /// Switch between different image sources
+  void _switchImageSource() {
+    currentImageIndex = (currentImageIndex + 1) % 4;
+    switch (currentImageIndex) {
+      case 0:
+        _updateImageFromUrl(imageUrls[0]);
+        break;
+      case 1:
+        _updateImageFromUrl(imageUrls[1]);
+        break;
+      case 2:
+        _updateImageFromUrl(imageUrls[2]);
+        break;
+      case 3:
+        // Example with file path
+        _updateImageFromFile('/path/to/local/image.png');
+        break;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Image Replacement')),
+      appBar: AppBar(title: Text('Image Replacement (v1.0.9+)')),
       body: Column(
         children: [
           Expanded(
@@ -205,11 +299,27 @@ class _ImageReplacementScreenState extends State<ImageReplacementScreen> {
           ),
           Padding(
             padding: EdgeInsets.all(16),
-            child: ElevatedButton(
-              onPressed: _switchImage,
-              child: Text(
-                'Switch Image (${currentImageIndex + 1}/${imageUrls.length})',
-              ),
+            child: Column(
+              children: [
+                if (isLoading)
+                  CircularProgressIndicator()
+                else
+                  Column(
+                    children: [
+                      ElevatedButton(
+                        onPressed: () => _switchImageSource(),
+                        child: Text(
+                          'Switch Image (${currentImageIndex + 1}/4)',
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Supports: URLs, Local Files, Bytes, RenderImage',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+              ],
             ),
           ),
         ],
@@ -218,6 +328,43 @@ class _ImageReplacementScreenState extends State<ImageReplacementScreen> {
   }
 }
 ```
+
+### Image Property Update Types
+
+```dart
+// Type 1: Local file path
+await controller.updateImageProperty(
+  'animationId',
+  'propertyName',
+  '/path/to/image.png',
+);
+
+// Type 2: URL (http/https)
+await controller.updateImageProperty(
+  'animationId',
+  'propertyName',
+  'https://example.com/image.png',
+);
+
+// Type 3: Raw bytes (Uint8List)
+final bytes = await File('path/to/image.png').readAsBytes();
+await controller.updateImageProperty(
+  'animationId',
+  'propertyName',
+  bytes,
+);
+
+// Type 4: Pre-decoded RenderImage (fastest)
+final bytes = await File('path/to/image.png').readAsBytes();
+final renderImage = await Factory.rive.decodeImage(bytes);
+await controller.updateImageProperty(
+  'animationId',
+  'propertyName',
+  renderImage,
+);
+```
+
+---
 
 ## Example 5: Text Updates
 
@@ -472,5 +619,28 @@ class MultipleAnimationsScreen extends StatelessWidget {
   }
 }
 ```
+
+---
+
+## What's New in v1.0.9
+
+### Advanced Image Property Handling
+
+The image property update system now supports **4 different input types**:
+
+1. **Local File Paths** - String paths to local files
+2. **URLs** - HTTP/HTTPS URLs for remote images
+3. **Raw Bytes** - Uint8List for custom image data
+4. **Pre-Decoded RenderImage** - For maximum performance
+
+### Benefits
+
+✅ Flexible input handling  
+✅ Automatic format detection  
+✅ Full error validation  
+✅ Performance optimization  
+✅ Type-safe implementation
+
+---
 
 These examples cover all major features of the Rive Animation Manager package. Adapt them to your specific use cases!

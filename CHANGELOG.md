@@ -7,7 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.8] - 2025-11-04
+## [1.0.9]
+
+### Added
+
+- **Advanced Image Property Handling**: Type-safe image updates with multiple source support
+  - Handle String paths (local files and URLs)
+  - Handle pre-decoded RenderImage objects
+  - Handle raw Uint8List bytes
+  - Automatic format detection and decoding
+
+- **Image Property Update Methods**
+  - `updateImageProperty()` with full type support
+  - Local file path support: `'path/to/image.png'`
+  - URL support: `'https://example.com/image.png'`
+  - Pre-decoded RenderImage support for performance
+  - Raw Uint8List bytes support for custom decoding
+
+### Fixed
+
+- **Image Property Type Handling**: Fixed missing type-safe image property updates
+  - Proper String path handling (local vs URL)
+  - File existence validation before loading
+  - HTTP status code validation for URL requests
+  - Automatic Uint8List to RenderImage conversion
+  - Error handling and logging for all image operations
+
+- **Image Loading Errors**: Enhanced error messages and validation
+  - File not found detection
+  - HTTP error status detection
+  - Decode failure handling
+  - Invalid type parameter detection
+
+### Improved
+
+- **Image Property API**: More flexible and intuitive
+  - Support for all common image source types
+  - Automatic format detection
+  - Better error messages for troubleshooting
+  - Consistent with other property update methods
+
+- **Performance**: Pre-decoded RenderImage support
+  - Skip decoding for already-decoded images
+  - Faster updates for cached images
+  - Reduced memory usage with smart caching
+  
+## [1.0.8]
 
 ### Added
 - **Complete Property Discovery System**
