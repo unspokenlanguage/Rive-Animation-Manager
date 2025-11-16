@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:rive_native/rive_native.dart';
 import 'package:rive_animation_manager/rive_animation_manager.dart';
+import 'package:flutter/material.dart' as materialColor;
 
 void main() {
   runApp(const MyApp());
@@ -14,7 +15,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Rive Animation Manager Example',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        primarySwatch: materialColor.Colors.blue,
         useMaterial3: true,
       ),
       home: const RiveAnimationExample(),
@@ -174,7 +175,7 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
           children: [
             // Animation Display Area
             Container(
-              color: Colors.grey[100],
+              color: materialColor.Colors.grey[100],
               height: 300,
               child: RiveManager(
                 animationId: 'example_animation',
@@ -209,7 +210,7 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: Colors.grey,
+                          color: materialColor.Colors.grey,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -231,7 +232,7 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Card(
-                  color: Colors.blue[50],
+                  color: materialColor.Colors.blue[50],
                   child: Padding(
                     padding: const EdgeInsets.all(12.0),
                     child: Column(
@@ -242,7 +243,7 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: Colors.blue,
+                            color: materialColor.Colors.blue,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -257,7 +258,7 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
                         Text(
                           'Time: ${_lastInput['time']}',
                           style:
-                              TextStyle(fontSize: 11, color: Colors.grey[600]),
+                              TextStyle(fontSize: 11, color: materialColor.Colors.grey[600]),
                         ),
                       ],
                     ),
@@ -270,7 +271,7 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Card(
-                  color: Colors.purple[50],
+                  color: materialColor.Colors.purple[50],
                   child: Padding(
                     padding: const EdgeInsets.all(12.0),
                     child: Column(
@@ -281,7 +282,7 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: Colors.purple,
+                            color: materialColor.Colors.purple,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -300,7 +301,7 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
                         Text(
                           'Time: ${_lastPropertyChange['time']}',
                           style:
-                              TextStyle(fontSize: 11, color: Colors.grey[600]),
+                              TextStyle(fontSize: 11, color: materialColor.Colors.grey[600]),
                         ),
                       ],
                     ),
@@ -326,9 +327,9 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.amber[50],
+                        color: materialColor.Colors.amber[50],
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.amber[300]!),
+                        border: Border.all(color: materialColor.Colors.amber[300]!),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -336,14 +337,14 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
                           const Text(
                             '⚠️ No properties discovered',
                             style: TextStyle(
-                              color: Colors.amber,
+                              color: materialColor.Colors.amber,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           const SizedBox(height: 8),
                           const Text(
                             'Make sure your Rive file has ViewModel data binding configured.',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                            style: TextStyle(fontSize: 12, color: materialColor.Colors.grey),
                           ),
                         ],
                       ),
@@ -394,20 +395,20 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.grey[100],
+                        color: materialColor.Colors.grey[100],
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Text(
                         'No events yet - interact with animation to see events!',
-                        style: TextStyle(color: Colors.grey),
+                        style: TextStyle(color: materialColor.Colors.grey),
                       ),
                     )
                   else
                     Container(
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey[300]!),
+                        border: Border.all(color: materialColor.Colors.grey[300]!),
                         borderRadius: BorderRadius.circular(8),
-                        color: Colors.grey[50],
+                        color: materialColor.Colors.grey[50],
                       ),
                       child: ListView.builder(
                         shrinkWrap: true,
@@ -438,7 +439,7 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Card(
-                color: Colors.green[50],
+                color: materialColor.Colors.green[50],
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
@@ -449,7 +450,7 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: Colors.green,
+                          color: materialColor.Colors.green,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -462,14 +463,14 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
                         '6. onDataBindingChange - Properties changed in real-time ⚡\n'
                         '7. onEventChange - Rive events fired\n'
                         '8. onAnimationComplete - Animation completed',
-                        style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+                        style: TextStyle(fontSize: 11, color: materialColor.Colors.grey[700]),
                       ),
                       const SizedBox(height: 12),
                       const Text(
                         'Watch the Event Log and Property Display update in real-time!',
                         style: TextStyle(
                           fontSize: 11,
-                          color: Colors.grey,
+                          color: materialColor.Colors.grey,
                           fontStyle: FontStyle.italic,
                         ),
                       ),
@@ -534,7 +535,7 @@ class PropertyCard extends StatelessWidget {
                     type,
                     style: const TextStyle(
                       fontSize: 11,
-                      color: Colors.white,
+                      color: materialColor.Colors.white,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -547,7 +548,7 @@ class PropertyCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey[800],
+                color: materialColor.Colors.grey[800],
               ),
             ),
           ],
@@ -559,21 +560,21 @@ class PropertyCard extends StatelessWidget {
   Color _getTypeColor(String type) {
     switch (type) {
       case 'string':
-        return Colors.blue;
+        return materialColor.Colors.blue;
       case 'number':
-        return Colors.green;
+        return materialColor.Colors.green;
       case 'boolean':
-        return Colors.orange;
+        return materialColor.Colors.orange;
       case 'color':
-        return Colors.purple;
+        return materialColor.Colors.purple;
       case 'trigger':
-        return Colors.red;
+        return materialColor.Colors.red;
       case 'image':
-        return Colors.teal;
+        return materialColor.Colors.teal;
       case 'enumType':
-        return Colors.indigo;
+        return materialColor.Colors.indigo;
       default:
-        return Colors.grey;
+        return materialColor.Colors.grey;
     }
   }
 

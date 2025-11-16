@@ -1,11 +1,11 @@
-# Rive Animation Manager - Quick Reference (v1.0.10+)
+# Rive Animation Manager - Quick Reference (v1.0.11+)
 
 ## Installation
 
 Add to `pubspec.yaml`:
 ```yaml
 dependencies:
-  rive_animation_manager: ^1.0.10
+  rive_animation_manager: ^1.0.11
 ```
 
 ## Basic Import
@@ -75,6 +75,61 @@ dynamic value = controller.getDataBindingPropertyValue(
 );
 ```
 
+### Color Property Updates (v1.0.11+)
+
+#### ✨ NEW: Flexible Multi-Format Color Support
+
+```dart
+final controller = RiveAnimationController.instance;
+
+// Format 1: Hex string
+await controller.updateDataBindingProperty('myAnimation', 'color', '#3EC293');
+await controller.updateDataBindingProperty('myAnimation', 'color', '#06B6D4');
+await controller.updateDataBindingProperty('myAnimation', 'color', '0xFF00FF00');
+
+// Format 2: RGB/RGBA string
+await controller.updateDataBindingProperty('myAnimation', 'color', 'rgb(62, 194, 147)');
+await controller.updateDataBindingProperty('myAnimation', 'color', 'rgba(62, 194, 147, 1.0)');
+
+// Format 3: Flutter Color object
+await controller.updateDataBindingProperty('myAnimation', 'color', Color(0xFF00FF00));
+await controller.updateDataBindingProperty('myAnimation', 'color', Colors.red);
+await controller.updateDataBindingProperty('myAnimation', 'color', Color.fromARGB(255, 62, 194, 147));
+
+// Format 4: Map (Standard 0-255)
+await controller.updateDataBindingProperty('myAnimation', 'color', {'r': 62, 'g': 194, 'b': 147});
+
+// Format 5: Map (Rive normalized 0.0-1.0)
+await controller.updateDataBindingProperty('myAnimation', 'color', {'r': 0.2431, 'g': 0.7608, 'b': 0.5764});
+
+// Format 6: List (Standard 0-255)
+await controller.updateDataBindingProperty('myAnimation', 'color', [62, 194, 147]);
+await controller.updateDataBindingProperty('myAnimation', 'color', [62, 194, 147, 255]);
+
+// Format 7: List (Rive normalized 0.0-1.0)
+await controller.updateDataBindingProperty('myAnimation', 'color', [0.2431, 0.7608, 0.5764]);
+await controller.updateDataBindingProperty('myAnimation', 'color', [0.2431, 0.7608, 0.5764, 1.0]);
+
+// Format 8: Named colors
+await controller.updateDataBindingProperty('myAnimation', 'color', 'red');
+await controller.updateDataBindingProperty('myAnimation', 'color', 'cyan');
+await controller.updateDataBindingProperty('myAnimation', 'color', 'teal');
+```
+
+#### Supported Color Formats
+
+| Format | Example | Notes |
+|--------|---------|-------|
+| Hex | `'#3EC293'` | 3, 6, or 8 digit hex |
+| RGB | `'rgb(62, 194, 147)'` | Standard RGB string |
+| RGBA | `'rgba(62, 194, 147, 1.0)'` | With alpha (0-1 or 0-255) |
+| Color | `Color(0xFF00FF00)` | Flutter Color object |
+| Map (Standard) | `{'r': 62, 'g': 194, 'b': 147}` | 0-255 values |
+| Map (Normalized) | `{'r': 0.2431, 'g': 0.7608, 'b': 0.5764}` | 0.0-1.0 (Rive) |
+| List (Standard) | `[62, 194, 147]` | 0-255 values |
+| List (Normalized) | `[0.2431, 0.7608, 0.5764]` | 0.0-1.0 (Rive) |
+| Named | `'red'`, `'blue'`, `'cyan'` | 17+ named colors |
+
 ### Image Management (v1.0.9+)
 
 #### Type-Safe Image Updates
@@ -111,21 +166,6 @@ await controller.updateImageProperty(
 );
 ```
 
-#### Legacy Image Methods (Still Supported)
-```dart
-// From asset
-await state.updateImageFromAsset('assets/images/image.png');
-
-// From URL
-await state.updateImageFromUrl('https://example.com/image.png');
-
-// From bytes
-await state.updateImageFromBytes(bytes);
-
-// From RenderImage (fastest)
-state.updateImageFromRenderedImage(renderImage);
-```
-
 ### Image Caching
 ```dart
 // Preload images
@@ -157,15 +197,13 @@ RiveManager(
 )
 ```
 
-### FileLoader (Custom Loading - NEW in v1.0.10!)
+### FileLoader (Custom Loading)
 ```dart
 RiveManager(
   animationId: 'customAnimation',
   fileLoader: MyCustomFileLoader(),
 )
 ```
-
-**What's New (v1.0.10):** FileLoader now fully works with input discovery, property discovery, and global registration!
 
 ## Callbacks
 
@@ -190,14 +228,6 @@ Called when trigger fires.
 ```dart
 onTriggerAction: (String name, dynamic value) {
   print('Triggered: $name');
-}
-```
-
-### onHoverAction
-Called for boolean hover states.
-```dart
-onHoverAction: (String name, dynamic value) {
-  print('Hover: $name');
 }
 ```
 
@@ -227,26 +257,14 @@ onEventChange: (String eventName, Event event, String currentState) {
 
 ## Advanced Operations
 
-### Get Animation State
-```dart
-RiveManagerState? state = controller.getAnimationState('animationId');
-if (state != null) {
-  List<Map> artboards = state.getArtboards();
-  Map<String, Input> inputs = state.inputs;
-  List<Map<String, dynamic>> properties = state.properties;
-}
-```
-
 ### Update Nested Properties (v1.0.8+)
 ```dart
-// Using '/' separator (parent/child/grandchild)
+// Using '/' separator
 await controller.updateNestedProperty(
   'animationId',
   'parent/child',
   newValue,
 );
-
-// Recursive discovery works automatically!
 ```
 
 ### Cache Statistics
@@ -257,26 +275,23 @@ print('Cached images: ${stats['totalCachedImages']}');
 print('Cached paths: ${stats['totalCachedPropertyPaths']}');
 ```
 
-### Clear Caches
-```dart
-// Clear one animation's property cache
-controller.clearPropertyCache('animationId');
-
-// Clear all caches
-controller.clearAllPropertyCaches();
-```
-
 ## Logging
 
-### Configure
+### Add Logs
 ```dart
-LogManager.setDebugMode(true);
-LogManager.clearLogs();
+// Add single log
+LogManager.addLog('Animation loaded');
+
+// Add log with error flag
+LogManager.addLog('Error occurred', isExpected: false);
+
+// Add multiple logs
+LogManager.addMultipleLogs(['Log 1', 'Log 2', 'Log 3']);
 ```
 
-### Get Logs
+### Retrieve Logs
 ```dart
-// All logs
+// All logs as strings
 List<String> allLogs = LogManager.logs;
 
 // Last N logs
@@ -285,9 +300,24 @@ List<String> recent = LogManager.getLastLogsAsStrings(10);
 // Search logs
 List<Map<String, dynamic>> results = LogManager.searchLogs('keyword');
 
-// Export
-String asString = LogManager.exportAsString();
-String asJson = LogManager.exportAsJSON();
+// Log counts
+int total = LogManager.logCount;
+int errors = LogManager.errorCount;
+int infos = LogManager.infoCount;
+```
+
+### Export Logs
+```dart
+// As formatted string
+String formatted = LogManager.exportAsString();
+
+// As JSON
+String json = LogManager.exportAsJSON();
+```
+
+### Clear Logs
+```dart
+LogManager.clearLogs();
 ```
 
 ## Property Types
@@ -299,126 +329,47 @@ Supported data binding property types:
 | `'string'` | Text value |
 | `'number'` | Numeric value |
 | `'boolean'` | True/false value |
-| `'color'` | Color value |
+| `'color'` | Color value (v1.0.11+: 8 formats!) |
 | `'image'` | Image asset |
 | `'enumType'` | Enum selection |
 | `'trigger'` | Action trigger |
-| `'viewModel'` | Nested ViewModel (v1.0.8+) |
+| `'viewModel'` | Nested ViewModel |
 
-## Animation Types
+## Version History
 
-```dart
-enum RiveAnimationType {
-  oneShot,        // Single animation, plays once
-  stateMachine,   // State machine with inputs
-}
-```
+| Version | Release | Key Features |
+|---------|---------|-----------------|
+| 1.0.11  | 2025-11-15 | Flexible color support ✨ |
+| 1.0.10  | 2025-11-12 | FileLoader full support |
+| 1.0.9   | 2025-11-11 | Advanced image handling |
+| 1.0.8   | 2025-11-04 | Nested properties |
+| 1.0.7   | 2025-11-04 | Data binding callbacks |
+| 1.0.0   | 2025-11-01 | Initial release |
 
-## Widget Properties
+## What's New in v1.0.11
 
-### Display
-- `fit: Fit` - Image fit (default: contain)
-- `alignment: Alignment` - Alignment (default: center)
-- `hitTestBehavior: RiveHitTestBehavior` - Hit test behavior
-- `cursor: MouseCursor` - Mouse cursor style
-- `layoutScaleFactor: double` - Scale factor
+### Flexible Color Property Support
 
-### File Loading (v1.0.10+)
-- `riveFilePath: String?` - Asset path (sync)
-- `externalFile: File?` - External file (sync)
-- `fileLoader: FileLoader?` - Custom loader (async) ← **Now fully supported!**
+Color properties now support **8 different input formats** with automatic detection:
 
-### Features
-- `enableImageReplacement: bool` - Enable dynamic images
-- `imageAssetReference: ImageAsset?` - Reference to image
+✅ Hex strings (#RGB, #RRGGBB, #AARRGGBB)  
+✅ RGB/RGBA strings (rgb(...), rgba(...))  
+✅ Flutter Color objects  
+✅ Maps (standard 0-255 OR Rive normalized 0.0-1.0)  
+✅ Lists (standard 0-255 OR Rive normalized 0.0-1.0)  
+✅ Named colors (red, blue, cyan, etc.)
+
+**Auto-detection:** The package automatically detects whether you're using standard (0-255) or normalized (0.0-1.0) values!
 
 ## Best Practices
 
 1. **Use Unique IDs**: Always provide unique animation IDs
 2. **Choose Loading Method**: Asset files for bundled, FileLoader for dynamic
 3. **Cache Images**: Preload images for frequent updates
-4. **Check Nulls**: Always check if state/property exists
-5. **Dispose**: Package handles automatic cleanup
-6. **Log Issues**: Enable LogManager for debugging
-7. **Error Handling**: Check return values of async operations
-
-## Version History
-
-| Version | Release | Key Features |
-|---------|---------|--------------|
-| 1.0.10  | 2025-11-12 | FileLoader full support ✨ |
-| 1.0.9   | 2025-11-11 | Advanced image handling |
-| 1.0.8   | 2025-11-04 | Nested properties |
-| 1.0.7   | 2025-11-04 | Data binding callbacks |
-| 1.0.0   | 2025-11-01 | Initial release |
-
-## Common Errors
-
-### Animation not loading
-- ✓ Check file path is correct
-- ✓ Enable logging to see errors
-- ✓ Verify file exists in assets
-
-### FileLoader animation not accessible (v1.0.10 Fixed!)
-- ✓ Now properly registers with controller
-- ✓ Use `RiveAnimationController.instance.getAnimationState('animationId')`
-
-### Image replacement not working
-- ✓ Set `enableImageReplacement: true`
-- ✓ Verify animation has image assets
-- ✓ Check image format support
-
-### Performance issues
-- ✓ Use image caching
-- ✓ Monitor cache stats
-- ✓ Check for memory leaks
-
-## Example: Complete Integration
-
-```dart
-class MyAnimationWidget extends StatefulWidget {
-  @override
-  State<MyAnimationWidget> createState() => _MyAnimationWidgetState();
-}
-
-class _MyAnimationWidgetState extends State<MyAnimationWidget> {
-  final controller = RiveAnimationController.instance;
-
-  @override
-  Widget build(BuildContext context) {
-    return RiveManager(
-      animationId: 'myApp',
-      riveFilePath: 'assets/animations/app.riv',
-      enableImageReplacement: true,
-      onInit: (artboard) {
-        print('Animation ready');
-      },
-      onInputChange: (index, name, value) {
-        print('Input: $name = $value');
-      },
-      onDataBindingChange: (name, type, value) {
-        print('Property: $name = $value');
-      },
-      onViewModelPropertiesDiscovered: (props) {
-        for (var prop in props) {
-          print('Property: ${prop['name']}');
-        }
-      },
-    );
-  }
-
-  void updateAnimation() {
-    controller.updateBool('myApp', 'isActive', true);
-    controller.updateNumber('myApp', 'progress', 0.7);
-  }
-
-  @override
-  void dispose() {
-    // Automatic cleanup by RiveManager
-    super.dispose();
-  }
-}
-```
+4. **Color Flexibility**: Use any color format - automatic conversion! (v1.0.11+)
+5. **Check Nulls**: Always check if state/property exists
+6. **Dispose**: Package handles automatic cleanup
+7. **Log Issues**: Enable LogManager for debugging
 
 ---
 

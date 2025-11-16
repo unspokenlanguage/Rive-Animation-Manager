@@ -229,25 +229,168 @@ print('Cached images: ${stats['totalCachedImages']}');
 print('Cached property paths: ${stats['totalCachedPropertyPaths']}');
 ```
 
-### Logging
+## Logging - Corrected Section for QUICK_REFERENCE.md
 
-Configure logging behavior:
+## Logging (Corrected)
+
+### Add Logs
 
 ```dart
 import 'package:rive_animation_manager/rive_animation_manager.dart';
 
-// Enable/disable logging
-LogManager.enabled = true;
+// Add a single log
+LogManager.addLog('Animation loaded successfully');
 
-// Clear logs
-LogManager.clearLogs();
+// Add a log with error flag
+LogManager.addLog('Failed to load animation', isExpected: false);
+
+// Add multiple logs at once
+LogManager.addMultipleLogs([
+  'Log 1',
+  'Log 2',
+  'Log 3',
+]);
+```
+
+### Retrieve Logs
+
+```dart
+// Get all logs as strings
+List<String> allLogs = LogManager.logs;
 
 // Get last N logs
-final recentLogs = LogManager.getLastLogs(10);
+final recentLogs = LogManager.getLastLogsAsStrings(10);
 for (var log in recentLogs) {
   print(log);
 }
+
+// Get log counts
+int totalLogs = LogManager.logCount;
+int errorLogs = LogManager.errorCount;
+int infoLogs = LogManager.infoCount;
 ```
+
+### Filter & Search Logs
+
+```dart
+// Get only error logs
+List<Map<String, dynamic>> errors = LogManager.getLogsByType(false);
+
+// Get only info logs
+List<Map<String, dynamic>> infos = LogManager.getLogsByType(true);
+
+// Search logs by keyword
+List<Map<String, dynamic>> results = LogManager.searchLogs('animation');
+for (var log in results) {
+  print('${log['timestamp']}: ${log['message']}');
+}
+```
+
+### Export Logs
+
+```dart
+// Export all logs as formatted string
+String formatted = LogManager.exportAsString();
+print(formatted);
+
+// Export all logs as JSON
+String json = LogManager.exportAsJSON();
+print(json);
+```
+
+### Clear Logs
+
+```dart
+// Clear all logs
+LogManager.clearLogs();
+```
+
+### Reactive UI Updates
+
+```dart
+// Listen to log changes
+LogManager.logMessages.addListener(() {
+  print('Logs updated!');
+});
+
+// Use in ValueListenableBuilder for real-time UI updates
+ValueListenableBuilder<List<Map<String, dynamic>>>(
+  valueListenable: LogManager.logMessages,
+  builder: (context, logs, _) {
+    return ListView.builder(
+      itemCount: logs.length,
+      itemBuilder: (context, index) {
+        final log = logs[index];
+        final isError = log['type'] == 'error';
+        
+        return ListTile(
+          leading: Icon(
+            isError ? Icons.error : Icons.info,
+            color: isError ? Colors.red : Colors.blue,
+          ),
+          title: Text(log['message']),
+          subtitle: Text(log['timestamp']),
+          trailing: Text(log['type']),
+        );
+      },
+    );
+  },
+);
+```
+
+## Log Entry Structure
+
+Each log is stored as a `Map<String, dynamic>` with the following structure:
+
+```dart
+{
+  'message': 'The log message',    // String
+  'text': 'The log message',       // String (same as message)
+  'timestamp': '14:32:45',         // String in HH:MM:SS format
+  'type': 'info',                  // String: 'info' or 'error'
+  'isExpected': true,              // bool: true = info, false = error
+}
+```
+
+## Complete LogManager API
+
+### Methods
+
+| Method | Purpose | Example |
+|--------|---------|---------|
+| `addLog()` | Add single log | `LogManager.addLog('message')` |
+| `addMultipleLogs()` | Add multiple logs | `LogManager.addMultipleLogs(['log1', 'log2'])` |
+| `clearLogs()` | Clear all logs | `LogManager.clearLogs()` |
+| `getLastLogsAsStrings()` | Get last N logs | `LogManager.getLastLogsAsStrings(10)` |
+| `getLogsByType()` | Filter by type | `LogManager.getLogsByType(true)` |
+| `searchLogs()` | Search logs | `LogManager.searchLogs('keyword')` |
+| `exportAsString()` | Export formatted | `LogManager.exportAsString()` |
+| `exportAsJSON()` | Export as JSON | `LogManager.exportAsJSON()` |
+| `dispose()` | Cleanup | `LogManager.dispose()` |
+
+### Properties
+
+| Property | Type | Purpose |
+|----------|------|---------|
+| `logs` | `List<String>` | All logs as strings |
+| `logCount` | `int` | Total number of logs |
+| `errorCount` | `int` | Number of error logs |
+| `infoCount` | `int` | Number of info logs |
+| `logMessages` | `ValueNotifier<List<Map>>` | For reactive UI updates |
+| `mounted` | `bool` | Check if widget binding available |
+
+## Logging Levels
+
+LogManager uses a simple two-level logging system:
+
+```dart
+// Info level (default)
+LogManager.addLog('Animation loaded', isExpected: true);  // ✅ Info
+
+// Error level
+LogManager.addLog('Failed to load', isExpected: false);   // ❌ Error
+```
+
 
 ## API Reference
 

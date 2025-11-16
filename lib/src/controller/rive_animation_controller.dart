@@ -1,4 +1,4 @@
-// lib/src/controller/rive_animation_controller.dart - FIXED VERSION
+// lib/src/controller/rive_animation_controller.dart - COMPLETE WITH COLOR CONVERTERS
 
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -6,24 +6,12 @@ import 'package:rive_native/rive_native.dart';
 import 'dart:io' as io;
 import '../helpers/log_manager.dart';
 import '../widgets/rive_manager.dart';
+import 'package:flutter/material.dart';
 
 /// Global singleton controller for managing all Rive animations across the app.
-///
-/// Provides centralized management for:
-/// - Animation state and lifecycle
-/// - Input handling (triggers, booleans, numbers)
-/// - Data binding properties
-/// - Image asset management and caching
-/// - Text run management
-///
-/// Usage:
-/// ```dart
-/// final controller = RiveAnimationController.instance;
-/// controller.updateBool('myAnimation', 'isHovered', true);
-/// ```
 class RiveAnimationController {
   static final RiveAnimationController _instance =
-      RiveAnimationController._internal();
+  RiveAnimationController._internal();
 
   factory RiveAnimationController() => _instance;
 
@@ -46,12 +34,12 @@ class RiveAnimationController {
     );
   }
 
-  /// Get artboards from an animation
+  /// Get Artboards from an animation
   List<Map<String, dynamic>> getArtboards(String animationId) {
     final state = _animations[animationId];
     if (state == null) {
       LogManager.addLog(
-        'Cannot get artboards: Animation $animationId not found',
+        'Cannot get Artboards: Animation $animationId not found',
         isExpected: false,
       );
       return [];
@@ -61,8 +49,6 @@ class RiveAnimationController {
   }
 
   /// Determine the type of a Rive input
-  ///
-  /// Returns one of: 'trigger', 'bool', 'number', or 'unknown'
   String getInputType(Input input) {
     try {
       final trigger = input as TriggerInput;
@@ -110,7 +96,7 @@ class RiveAnimationController {
       'imageAssets': _imageAssets.length,
       'cachedImageSets': _imageCache.length,
       'totalCachedImages':
-          _imageCache.values.fold(0, (sum, list) => sum + list.length),
+      _imageCache.values.fold(0, (sum, list) => sum + list.length),
       'animationsWithPropertyCache': _propertyPathCache.length,
       'totalCachedPropertyPaths': totalCachedPaths,
     };
@@ -137,13 +123,11 @@ class RiveAnimationController {
   }
 
   /// Update a data binding property by name
-  ///
-  /// Supports: number, boolean, string, color, enum, trigger, and image types
   Future<bool> updateDataBindingProperty(
-    String animationId,
-    String propertyName,
-    dynamic newValue,
-  ) async {
+      String animationId,
+      String propertyName,
+      dynamic newValue,
+      ) async {
     final state = _animations[animationId];
     if (state == null) {
       LogManager.addLog(
@@ -153,9 +137,8 @@ class RiveAnimationController {
       return false;
     }
 
-    // USE PUBLIC GETTER
     final propertyInfo = state.properties.firstWhere(
-      (prop) => prop['name'] == propertyName,
+          (prop) => prop['name'] == propertyName,
       orElse: () => <String, dynamic>{},
     );
 
@@ -180,14 +163,12 @@ class RiveAnimationController {
     );
   }
 
-  /// Update a nested property using path notation (e.g., 'parent/child')
-  ///
-  /// Caches property paths for performance optimization
+  /// Update a nested property using path notation
   Future<bool> updateNestedProperty(
-    String animationId,
-    String fullPath,
-    dynamic newValue,
-  ) async {
+      String animationId,
+      String fullPath,
+      dynamic newValue,
+      ) async {
     final state = _animations[animationId];
     if (state == null) {
       LogManager.addLog('Animation $animationId not found', isExpected: false);
@@ -229,10 +210,10 @@ class RiveAnimationController {
     }
 
     Map<String, dynamic>? findNestedProperty(
-      List<Map<String, dynamic>> props,
-      List<String> path,
-      int index,
-    ) {
+        List<Map<String, dynamic>> props,
+        List<String> path,
+        int index,
+        ) {
       if (index >= path.length) return null;
 
       final currentName = path[index];
@@ -244,7 +225,7 @@ class RiveAnimationController {
           }
 
           final nestedProps =
-              prop['nestedProperties'] as List<Map<String, dynamic>>?;
+          prop['nestedProperties'] as List<Map<String, dynamic>>?;
           if (nestedProps != null) {
             return findNestedProperty(nestedProps, path, index + 1);
           }
@@ -256,7 +237,6 @@ class RiveAnimationController {
       return null;
     }
 
-    // USE PUBLIC GETTER
     final targetProperty = findNestedProperty(state.properties, pathParts, 0);
 
     if (targetProperty == null) {
@@ -286,13 +266,13 @@ class RiveAnimationController {
   }
 
   Future<bool> _updatePropertyInstance(
-    dynamic propertyInstance,
-    String propertyType,
-    dynamic newValue,
-    Map<String, dynamic> propertyInfo,
-    String propertyName,
-    String animationId,
-  ) async {
+      dynamic propertyInstance,
+      String propertyType,
+      dynamic newValue,
+      Map<String, dynamic> propertyInfo,
+      String propertyName,
+      String animationId,
+      ) async {
     try {
       switch (propertyType) {
         case 'number':
@@ -333,16 +313,36 @@ class RiveAnimationController {
           break;
 
         case 'color':
-          if (propertyInstance is ViewModelInstanceColor && newValue is Color) {
-            propertyInstance.value = newValue;
-            propertyInfo['value'] = newValue;
-            LogManager.addLog(
-              'Updated color property $propertyName in $animationId',
-              isExpected: true,
-            );
-            return true;
+          if (propertyInstance is ViewModelInstanceColor) {
+            try {
+              final colorValue = _flexibleColorConvert(newValue);
+
+              propertyInstance.value = colorValue;
+              propertyInfo['value'] = colorValue;
+
+              // ✅ Use modern accessors (.r, .g, .b, .a)
+              final components = _getColorComponents(colorValue);
+              final int r = components['red']!;
+              final int g = components['green']!;
+              final int b = components['blue']!;
+              final int a = components['alpha']!;
+
+              LogManager.addLog(
+                'Updated color property $propertyName in $animationId to Color(r:${(r/255.0).toStringAsFixed(4)}, g:${(g/255.0).toStringAsFixed(4)}, b:${(b/255.0).toStringAsFixed(4)}, a:${(a/255.0).toStringAsFixed(4)})',
+                isExpected: true,
+              );
+              return true;
+            } catch (e) {
+              LogManager.addLog(
+                'Error setting color property $propertyName: $e',
+                isExpected: false,
+              );
+              return false;
+            }
           }
           break;
+
+
 
         case 'enumType':
           if (propertyInstance is ViewModelInstanceEnum) {
@@ -398,11 +398,11 @@ class RiveAnimationController {
   }
 
   Future<bool> _updateImageProperty(
-    String animationId,
-    String propertyName,
-    dynamic value,
-    Map<String, dynamic> propertyInfo,
-  ) async {
+      String animationId,
+      String propertyName,
+      dynamic value,
+      Map<String, dynamic> propertyInfo,
+      ) async {
     try {
       final state = _animations[animationId];
       if (state == null) {
@@ -488,7 +488,7 @@ class RiveAnimationController {
         return false;
       }
 
-      // ✅ DECODE BYTES TO RENDERIMAGE
+      // Decode bytes to renderImage
       final renderImage = await Factory.rive.decodeImage(bytes);
       if (renderImage == null) {
         LogManager.addLog(
@@ -520,9 +520,8 @@ class RiveAnimationController {
     final state = _animations[animationId];
     if (state == null) return null;
 
-    // USE PUBLIC GETTER
     final propertyInfo = state.properties.firstWhere(
-      (prop) => prop['name'] == propertyName,
+          (prop) => prop['name'] == propertyName,
       orElse: () => <String, dynamic>{},
     );
 
@@ -534,7 +533,6 @@ class RiveAnimationController {
     final state = _animations[animationId];
     if (state == null) return {};
 
-    // USE PUBLIC GETTER
     final Map<String, dynamic> values = {};
     for (final prop in state.properties) {
       values[prop['name'] as String] = prop['value'];
@@ -556,7 +554,6 @@ class RiveAnimationController {
 
   /// Get current state name for an animation
   String? getCurrentStateName(String animationId) {
-    // USE PUBLIC GETTER
     final stateName = _animations[animationId]?.currentStateName;
     if (stateName != null) {
       LogManager.addLog(
@@ -650,15 +647,14 @@ class RiveAnimationController {
     }
   }
 
-  /// Set text run value in an artboard
+  /// Set text run value in an Artboard
   void setTextRunValue(
-    String animationId,
-    String textRunName,
-    String value, {
-    String? path,
-  }) {
+      String animationId,
+      String textRunName,
+      String value, {
+        String? path,
+      }) {
     final state = _animations[animationId];
-    // USE PUBLIC GETTER
     if (state?.controller == null) {
       LogManager.addLog(
         'Cannot set text "$textRunName": Controller not found for $animationId',
@@ -681,14 +677,13 @@ class RiveAnimationController {
     }
   }
 
-  /// Get text run value from an artboard
+  /// Get text run value from an Artboard
   String? getTextRunValue(
-    String animationId,
-    String textRunName, {
-    String? path,
-  }) {
+      String animationId,
+      String textRunName, {
+        String? path,
+      }) {
     final state = _animations[animationId];
-    // USE PUBLIC GETTER
     if (state?.controller == null) {
       LogManager.addLog(
         'Cannot get text "$textRunName": Controller not found for $animationId',
@@ -752,13 +747,11 @@ class RiveAnimationController {
   }
 
   /// Preload and cache images for instant swapping
-  ///
-  /// Loads multiple images into memory for fast switching without decode overhead
   Future<void> preloadImagesForAnimation(
-    String animationId,
-    List<String> urls,
-    Factory factory,
-  ) async {
+      String animationId,
+      List<String> urls,
+      Factory factory,
+      ) async {
     LogManager.addLog(
       'Starting image preload for $animationId (${urls.length} images)',
       isExpected: true,
@@ -811,7 +804,6 @@ class RiveAnimationController {
     final state = _animations[animationId];
     final cache = _imageCache[animationId];
 
-    // USE PUBLIC GETTER
     if (state?.imageAssetReference == null) {
       LogManager.addLog(
         'Cannot update image from cache: No image asset for $animationId',
@@ -851,7 +843,274 @@ class RiveAnimationController {
 
   /// Get all properties for an animation
   List<Map<String, dynamic>> getProperties(String animationId) {
-    // USE PUBLIC GETTER
     return _animations[animationId]?.properties ?? [];
   }
+
+  
+
+  // ═════════════════════════════════════════════════════════════════════════════════════
+  // ✅ COLOR CONVERSION METHODS - Handle multiple color formats for Rive
+  // ═════════════════════════════════════════════════════════════════════════════════════
+
+  /// Convert any color format to Flutter Color object
+  ///
+  /// Supports:
+  /// - Color objects (0-255 internal, 0.0-1.0 normalized getters)
+  /// - Hex strings (#RGB, #RRGGBB, #AARRGGBB)
+  /// - RGB/RGBA strings ("rgb(255,0,0)", "rgba(255,0,0,1.0)")
+  /// - Map formats ({r: 62, g: 194, b: 147} OR {r: 0.2431, g: 0.7608, b: 0.5764})
+  /// - List formats ([62, 194, 147] OR [0.2431, 0.7608, 0.5764])
+  /// - Named colors ("red", "blue", etc.)
+
+  Map<String, int> _getColorComponents(Color color) {
+    return {
+      'red': (color.r * 255.0).round() & 0xff,
+      'green': (color.g * 255.0).round() & 0xff,
+      'blue': (color.b * 255.0).round() & 0xff,
+      'alpha': (color.a * 255.0).round() & 0xff,
+    };
+  }
+
+
+  Color _flexibleColorConvert(dynamic value) {
+    // ✅ Already a Color object (has normalized getters)
+    if (value is Color) {
+      return value;
+    }
+
+    // ✅ String formats
+    if (value is String) {
+      return _stringToColor(value);
+    }
+
+    // ✅ Map format (handles both 0-255 AND 0.0-1.0)
+    if (value is Map<String, dynamic>) {
+      return _mapToColor(value);
+    }
+
+    // ✅ List format [R, G, B] or [R, G, B, A]
+    if (value is List) {
+      return _listToColor(value);
+    }
+
+    // ✅ Fallback - FIX: Use Colors.white (not materialColor.Colors.white)
+    LogManager.addLog(
+      'Unknown color format: ${value.runtimeType}. Defaulting to white.',
+      isExpected: false,
+    );
+    return Colors.white; // ← FIXED: Just Colors.white
+  }
+
+  /// Convert string to Color
+  Color _stringToColor(String input) {
+    final trimmed = input.trim().toLowerCase();
+
+    if (trimmed.startsWith('#') || trimmed.startsWith('0x')) {
+      return _hexToColor(input);
+    }
+
+    if (trimmed.startsWith('rgb(')) {
+      return _rgbToColor(input);
+    }
+
+    if (trimmed.startsWith('rgba(')) {
+      return _rgbaToColor(input);
+    }
+
+    return _namedColorToColor(input);
+  }
+
+  /// Convert hex string to Color
+  Color _hexToColor(String hex) {
+    try {
+      String cleanHex = hex
+          .replaceFirst('0x', '')
+          .replaceFirst('#', '')
+          .toUpperCase();
+
+      if (cleanHex.length == 3) {
+        cleanHex = '${cleanHex[0]}${cleanHex[0]}'
+            '${cleanHex[1]}${cleanHex[1]}'
+            '${cleanHex[2]}${cleanHex[2]}';
+      }
+
+      if (cleanHex.length == 6) {
+        cleanHex = 'FF$cleanHex';
+      }
+
+      if (cleanHex.length != 8) {
+        throw FormatException('Invalid hex length: ${cleanHex.length}');
+      }
+
+      final colorInt = int.parse('0x$cleanHex');
+      return Color(colorInt);
+    } catch (e) {
+      LogManager.addLog('Error parsing hex color $hex: $e', isExpected: false);
+      return Colors.white;
+    }
+  }
+
+  /// Convert RGB string to Color
+  Color _rgbToColor(String rgb) {
+    try {
+      final match = RegExp(r'rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)')
+          .firstMatch(rgb.toLowerCase());
+
+      if (match == null) {
+        throw FormatException('Invalid RGB format');
+      }
+
+      final r = int.parse(match.group(1)!).clamp(0, 255);
+      final g = int.parse(match.group(2)!).clamp(0, 255);
+      final b = int.parse(match.group(3)!).clamp(0, 255);
+
+      return Color.fromARGB(255, r, g, b);
+    } catch (e) {
+      LogManager.addLog('Error parsing RGB color $rgb: $e', isExpected: false);
+      return Colors.white;
+    }
+  }
+
+  /// Convert RGBA string to Color
+  Color _rgbaToColor(String rgba) {
+    try {
+      final match = RegExp(
+          r'rgba\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)')
+          .firstMatch(rgba.toLowerCase());
+
+      if (match == null) {
+        throw FormatException('Invalid RGBA format');
+      }
+
+      final r = int.parse(match.group(1)!).clamp(0, 255);
+      final g = int.parse(match.group(2)!).clamp(0, 255);
+      final b = int.parse(match.group(3)!).clamp(0, 255);
+      final aStr = match.group(4)!;
+
+      int a;
+      if (aStr.contains('.')) {
+        a = (double.parse(aStr) * 255).toInt();
+      } else {
+        a = int.parse(aStr);
+      }
+      a = a.clamp(0, 255);
+
+      return Color.fromARGB(a, r, g, b);
+    } catch (e) {
+      LogManager.addLog('Error parsing RGBA color $rgba: $e', isExpected: false);
+      return Colors.white;
+    }
+  }
+
+  /// Convert named color string to Color
+  Color _namedColorToColor(String name) {
+    final colorMap = {
+      'red': Colors.red,
+      'blue': Colors.blue,
+      'green': Colors.green,
+      'yellow': Colors.yellow,
+      'orange': Colors.orange,
+      'purple': Colors.purple,
+      'pink': Colors.pink,
+      'cyan': Colors.cyan,
+      'teal': Colors.teal,
+      'lime': Colors.lime,
+      'indigo': Colors.indigo,
+      'black': Colors.black,
+      'white': Colors.white,
+      'grey': Colors.grey,
+      'gray': Colors.grey,
+      'amber': Colors.amber,
+      'brown': Colors.brown,
+    };
+
+    if (colorMap.containsKey(name)) {
+      return colorMap[name]!;
+    }
+
+    LogManager.addLog('Unknown named color: $name. Using white.', isExpected: false);
+    return Colors.white;
+  }
+
+  /// Convert Map to Color
+  Color _mapToColor(Map<String, dynamic> map) {
+    try {
+      final r = (map['r'] ?? map['red'] ?? 1.0);
+      final g = (map['g'] ?? map['green'] ?? 1.0);
+      final b = (map['b'] ?? map['blue'] ?? 1.0);
+      final a = (map['a'] ?? map['alpha'] ?? 1.0);
+
+      bool isNormalized = (r is double && r <= 1.0) ||
+          (g is double && g <= 1.0) ||
+          (b is double && b <= 1.0);
+
+      int rInt, gInt, bInt, aInt;
+
+      if (isNormalized) {
+        rInt = (r * 255).round().clamp(0, 255);
+        gInt = (g * 255).round().clamp(0, 255);
+        bInt = (b * 255).round().clamp(0, 255);
+        aInt = (a * 255).round().clamp(0, 255);
+
+        LogManager.addLog(
+          'Converted normalized map color: {r:$r,g:$g,b:$b,a:$a} → Color($rInt,$gInt,$bInt,$aInt)',
+          isExpected: true,
+        );
+      } else {
+        rInt = (r as num).toInt().clamp(0, 255);
+        gInt = (g as num).toInt().clamp(0, 255);
+        bInt = (b as num).toInt().clamp(0, 255);
+        aInt = (a as num).toInt().clamp(0, 255);
+
+        LogManager.addLog(
+          'Converted standard map color: {r:$r,g:$g,b:$b,a:$a} → Color($rInt,$gInt,$bInt,$aInt)',
+          isExpected: true,
+        );
+      }
+
+      return Color.fromARGB(aInt, rInt, gInt, bInt);
+    } catch (e) {
+      LogManager.addLog('Error parsing map color: $e', isExpected: false);
+      return Colors.white;
+    }
+  }
+
+  /// Convert List to Color
+  Color _listToColor(List list) {
+    try {
+      if (list.isEmpty || list.length < 3) {
+        throw Exception('List must have at least 3 elements [R, G, B]');
+      }
+
+      final r = list[0];
+      final g = list[1];
+      final b = list[2];
+      final a = list.length > 3 ? list[3] : 255;
+
+      bool isNormalized = (r is double && r <= 1.0) ||
+          (g is double && g <= 1.0) ||
+          (b is double && b <= 1.0);
+
+      int rInt, gInt, bInt, aInt;
+
+      if (isNormalized) {
+        rInt = (r * 255).round().clamp(0, 255);
+        gInt = (g * 255).round().clamp(0, 255);
+        bInt = (b * 255).round().clamp(0, 255);
+        aInt = (a * 255).round().clamp(0, 255);
+      } else {
+        rInt = (r as num).toInt().clamp(0, 255);
+        gInt = (g as num).toInt().clamp(0, 255);
+        bInt = (b as num).toInt().clamp(0, 255);
+        aInt = (a as num).toInt().clamp(0, 255);
+      }
+
+      return Color.fromARGB(aInt, rInt, gInt, bInt);
+    } catch (e) {
+      LogManager.addLog('Error parsing list color: $e', isExpected: false);
+      return Colors.white;
+    }
+  }
+
 }
+

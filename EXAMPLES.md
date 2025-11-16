@@ -179,7 +179,7 @@ class _ImageReplacementScreenState extends State<ImageReplacementScreen> {
   Future<void> _updateImageFromFile(String filePath) async {
     setState(() => isLoading = true);
     try {
-      final success = await controller.updateImageProperty(
+      final success = await controller.updateDataBindingProperty(
         'imageReplacement',
         'displayImage',
         filePath, // Local file path
@@ -333,14 +333,14 @@ class _ImageReplacementScreenState extends State<ImageReplacementScreen> {
 
 ```dart
 // Type 1: Local file path
-await controller.updateImageProperty(
+await controller.updateDataBindingProperty(
   'animationId',
   'propertyName',
   '/path/to/image.png',
 );
 
 // Type 2: URL (http/https)
-await controller.updateImageProperty(
+await controller.updateDataBindingProperty(
   'animationId',
   'propertyName',
   'https://example.com/image.png',
@@ -348,7 +348,7 @@ await controller.updateImageProperty(
 
 // Type 3: Raw bytes (Uint8List)
 final bytes = await File('path/to/image.png').readAsBytes();
-await controller.updateImageProperty(
+await controller.updateDataBindingProperty(
   'animationId',
   'propertyName',
   bytes,
@@ -357,7 +357,7 @@ await controller.updateImageProperty(
 // Type 4: Pre-decoded RenderImage (fastest)
 final bytes = await File('path/to/image.png').readAsBytes();
 final renderImage = await Factory.rive.decodeImage(bytes);
-await controller.updateImageProperty(
+await controller.updateDataBindingProperty(
   'animationId',
   'propertyName',
   renderImage,
@@ -696,8 +696,255 @@ class MultipleAnimationsScreen extends StatelessWidget {
   }
 }
 ```
+## Example 10: Color
 
+```dart
+class ColorPropertiesScreen extends StatefulWidget {
+  @override
+  State<ColorPropertiesScreen> createState() => _ColorPropertiesScreenState();
+}
+
+class _ColorPropertiesScreenState extends State<ColorPropertiesScreen> {
+  final controller = RiveAnimationController.instance;
+  String currentFormat = 'Hex';
+  bool isLoading = false;
+
+  /// Update color using different formats
+  Future<void> _updateColorFormat(String format) async {
+    setState(() {
+      isLoading = true;
+      currentFormat = format;
+    });
+
+    try {
+      bool success = false;
+
+      switch (format) {
+        case 'Hex':
+        // Format 1: Hex string (#RRGGBB or #AARRGGBB)
+          success = await controller.updateDataBindingProperty(
+            'colorDemo',
+            'bgColor',
+            '#3EC293',  // Teal color
+          );
+          break;
+
+        case 'Hex Short':
+        // Format 1b: Short hex (#RGB → #RRGGBB)
+          success = await controller.updateDataBindingProperty(
+            'colorDemo',
+            'bgColor',
+            '#06B',  // Blue color → #0066BB
+          );
+          break;
+
+        case 'RGB':
+        // Format 2: RGB string
+          success = await controller.updateDataBindingProperty(
+            'colorDemo',
+            'bgColor',
+            'rgb(62, 194, 147)',  // Teal color
+          );
+          break;
+
+        case 'RGBA':
+        // Format 2b: RGBA string with alpha
+          success = await controller.updateDataBindingProperty(
+            'colorDemo',
+            'bgColor',
+            'rgba(62, 194, 147, 0.8)',  // Teal with 80% opacity
+          );
+          break;
+
+        case 'Color Object':
+        // Format 3: Flutter Color object
+          success = await controller.updateDataBindingProperty(
+            'colorDemo',
+            'bgColor',
+            Color(0xFF00FF00),  // Green
+          );
+          break;
+
+        case 'Color.from':
+        // Format 3b: Color.fromARGB
+          success = await controller.updateDataBindingProperty(
+            'colorDemo',
+            'bgColor',
+            Color.fromARGB(255, 62, 194, 147),  // Teal
+          );
+          break;
+
+        case 'Map Standard':
+        // Format 4: Map with standard 0-255 values
+          success = await controller.updateDataBindingProperty(
+            'colorDemo',
+            'bgColor',
+            {'r': 62, 'g': 194, 'b': 147, 'a': 255},
+          );
+          break;
+
+        case 'Map Normalized':
+        // Format 5: Map with Rive normalized 0.0-1.0 values
+        // ✅ NEW in v1.0.11 - Auto-detected!
+          success = await controller.updateDataBindingProperty(
+            'colorDemo',
+            'bgColor',
+            {'r': 0.2431, 'g': 0.7608, 'b': 0.5764, 'a': 1.0},
+          );
+          break;
+
+        case 'List Standard':
+        // Format 6: List with standard 0-255 values
+          success = await controller.updateDataBindingProperty(
+            'colorDemo',
+            'bgColor',
+            [62, 194, 147, 255],
+          );
+          break;
+
+        case 'List Normalized':
+        // Format 7: List with Rive normalized 0.0-1.0 values
+        // ✅ NEW in v1.0.11 - Auto-detected!
+          success = await controller.updateDataBindingProperty(
+            'colorDemo',
+            'bgColor',
+            [0.2431, 0.7608, 0.5764, 1.0],
+          );
+          break;
+
+        case 'Named Color':
+        // Format 8: Named color string
+          success = await controller.updateDataBindingProperty(
+            'colorDemo',
+            'bgColor',
+            'teal',
+          );
+          break;
+
+        case 'Colors.':
+        // Format 8b: Material Colors
+          success = await controller.updateDataBindingProperty(
+            'colorDemo',
+            'bgColor',
+            Colors.teal,
+          );
+          break;
+      }
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('✅ Updated using $format format')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('❌ Error: $e')),
+      );
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Color Formats (v1.0.11+)')),
+      body: Column(
+        children: [
+          Expanded(
+            child: RiveManager(
+              animationId: 'colorDemo',
+              riveFilePath: 'assets/animations/color_demo.riv',
+              onDataBindingChange: (name, type, value) {
+                print('Color property $name changed');
+              },
+            ),
+          ),
+          Divider(),
+          Padding(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Color Format: $currentFormat',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                SizedBox(height: 16),
+                if (isLoading)
+                  Center(child: CircularProgressIndicator())
+                else
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      // String formats
+                      _buildFormatButton('Hex'),
+                      _buildFormatButton('Hex Short'),
+                      _buildFormatButton('RGB'),
+                      _buildFormatButton('RGBA'),
+
+                      // Color objects
+                      _buildFormatButton('Color Object'),
+                      _buildFormatButton('Color.from'),
+
+                      // Map formats
+                      _buildFormatButton('Map Standard'),
+                      _buildFormatButton('Map Normalized'),
+
+                      // List formats
+                      _buildFormatButton('List Standard'),
+                      _buildFormatButton('List Normalized'),
+
+                      // Named colors
+                      _buildFormatButton('Named Color'),
+                      _buildFormatButton('Colors.'),
+                    ],
+                  ),
+                SizedBox(height: 16),
+                Text(
+                  '✨ All formats are automatically detected and converted!',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormatButton(String format) {
+    return ElevatedButton(
+      onPressed: () => _updateColorFormat(format),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: currentFormat == format ? Colors.blue : null,
+      ),
+      child: Text(format),
+    );
+  }
+}
+
+```
 ---
+## What's New in v1.0.11
+
+### Flexible Multi-Format Color Support
+
+Color properties now accept **8 different formats** with automatic detection:
+
+✅ Hex Strings - `'#3EC293'`, `'#3EC'`, `'#FF3EC293'`  
+✅ RGB/RGBA Strings - `'rgb(62, 194, 147)'`, `'rgba(62, 194, 147, 1.0)'`  
+✅ Flutter Color Objects - `Color(0xFF3EC293)`, `Colors.teal`  
+✅ Maps (Standard 0-255) - `{'r': 62, 'g': 194, 'b': 147}`  
+✅ Maps (Normalized 0.0-1.0) - `{'r': 0.2431, 'g': 0.7608, 'b': 0.5764}` ⭐  
+✅ Lists (Standard 0-255) - `[62, 194, 147]`  
+✅ Lists (Normalized 0.0-1.0) - `[0.2431, 0.7608, 0.5764]` ⭐  
+✅ Named Colors - `'red'`, `'blue'`, `'cyan'`, `'teal'`
+
+**Auto-Detection:** Automatically detects standard vs normalized values!  
+**Rive Compatible:** Direct support for Rive API normalized format!
+
 
 ## What's New in v1.0.10
 
