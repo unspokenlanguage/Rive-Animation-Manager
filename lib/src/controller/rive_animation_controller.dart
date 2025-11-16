@@ -11,7 +11,7 @@ import 'package:flutter/material.dart';
 /// Global singleton controller for managing all Rive animations across the app.
 class RiveAnimationController {
   static final RiveAnimationController _instance =
-  RiveAnimationController._internal();
+      RiveAnimationController._internal();
 
   factory RiveAnimationController() => _instance;
 
@@ -96,7 +96,7 @@ class RiveAnimationController {
       'imageAssets': _imageAssets.length,
       'cachedImageSets': _imageCache.length,
       'totalCachedImages':
-      _imageCache.values.fold(0, (sum, list) => sum + list.length),
+          _imageCache.values.fold(0, (sum, list) => sum + list.length),
       'animationsWithPropertyCache': _propertyPathCache.length,
       'totalCachedPropertyPaths': totalCachedPaths,
     };
@@ -124,10 +124,10 @@ class RiveAnimationController {
 
   /// Update a data binding property by name
   Future<bool> updateDataBindingProperty(
-      String animationId,
-      String propertyName,
-      dynamic newValue,
-      ) async {
+    String animationId,
+    String propertyName,
+    dynamic newValue,
+  ) async {
     final state = _animations[animationId];
     if (state == null) {
       LogManager.addLog(
@@ -138,7 +138,7 @@ class RiveAnimationController {
     }
 
     final propertyInfo = state.properties.firstWhere(
-          (prop) => prop['name'] == propertyName,
+      (prop) => prop['name'] == propertyName,
       orElse: () => <String, dynamic>{},
     );
 
@@ -165,10 +165,10 @@ class RiveAnimationController {
 
   /// Update a nested property using path notation
   Future<bool> updateNestedProperty(
-      String animationId,
-      String fullPath,
-      dynamic newValue,
-      ) async {
+    String animationId,
+    String fullPath,
+    dynamic newValue,
+  ) async {
     final state = _animations[animationId];
     if (state == null) {
       LogManager.addLog('Animation $animationId not found', isExpected: false);
@@ -210,10 +210,10 @@ class RiveAnimationController {
     }
 
     Map<String, dynamic>? findNestedProperty(
-        List<Map<String, dynamic>> props,
-        List<String> path,
-        int index,
-        ) {
+      List<Map<String, dynamic>> props,
+      List<String> path,
+      int index,
+    ) {
       if (index >= path.length) return null;
 
       final currentName = path[index];
@@ -225,7 +225,7 @@ class RiveAnimationController {
           }
 
           final nestedProps =
-          prop['nestedProperties'] as List<Map<String, dynamic>>?;
+              prop['nestedProperties'] as List<Map<String, dynamic>>?;
           if (nestedProps != null) {
             return findNestedProperty(nestedProps, path, index + 1);
           }
@@ -266,13 +266,13 @@ class RiveAnimationController {
   }
 
   Future<bool> _updatePropertyInstance(
-      dynamic propertyInstance,
-      String propertyType,
-      dynamic newValue,
-      Map<String, dynamic> propertyInfo,
-      String propertyName,
-      String animationId,
-      ) async {
+    dynamic propertyInstance,
+    String propertyType,
+    dynamic newValue,
+    Map<String, dynamic> propertyInfo,
+    String propertyName,
+    String animationId,
+  ) async {
     try {
       switch (propertyType) {
         case 'number':
@@ -328,7 +328,7 @@ class RiveAnimationController {
               final int a = components['alpha']!;
 
               LogManager.addLog(
-                'Updated color property $propertyName in $animationId to Color(r:${(r/255.0).toStringAsFixed(4)}, g:${(g/255.0).toStringAsFixed(4)}, b:${(b/255.0).toStringAsFixed(4)}, a:${(a/255.0).toStringAsFixed(4)})',
+                'Updated color property $propertyName in $animationId to Color(r:${(r / 255.0).toStringAsFixed(4)}, g:${(g / 255.0).toStringAsFixed(4)}, b:${(b / 255.0).toStringAsFixed(4)}, a:${(a / 255.0).toStringAsFixed(4)})',
                 isExpected: true,
               );
               return true;
@@ -341,8 +341,6 @@ class RiveAnimationController {
             }
           }
           break;
-
-
 
         case 'enumType':
           if (propertyInstance is ViewModelInstanceEnum) {
@@ -398,11 +396,11 @@ class RiveAnimationController {
   }
 
   Future<bool> _updateImageProperty(
-      String animationId,
-      String propertyName,
-      dynamic value,
-      Map<String, dynamic> propertyInfo,
-      ) async {
+    String animationId,
+    String propertyName,
+    dynamic value,
+    Map<String, dynamic> propertyInfo,
+  ) async {
     try {
       final state = _animations[animationId];
       if (state == null) {
@@ -521,7 +519,7 @@ class RiveAnimationController {
     if (state == null) return null;
 
     final propertyInfo = state.properties.firstWhere(
-          (prop) => prop['name'] == propertyName,
+      (prop) => prop['name'] == propertyName,
       orElse: () => <String, dynamic>{},
     );
 
@@ -649,11 +647,11 @@ class RiveAnimationController {
 
   /// Set text run value in an Artboard
   void setTextRunValue(
-      String animationId,
-      String textRunName,
-      String value, {
-        String? path,
-      }) {
+    String animationId,
+    String textRunName,
+    String value, {
+    String? path,
+  }) {
     final state = _animations[animationId];
     if (state?.controller == null) {
       LogManager.addLog(
@@ -679,10 +677,10 @@ class RiveAnimationController {
 
   /// Get text run value from an Artboard
   String? getTextRunValue(
-      String animationId,
-      String textRunName, {
-        String? path,
-      }) {
+    String animationId,
+    String textRunName, {
+    String? path,
+  }) {
     final state = _animations[animationId];
     if (state?.controller == null) {
       LogManager.addLog(
@@ -748,10 +746,10 @@ class RiveAnimationController {
 
   /// Preload and cache images for instant swapping
   Future<void> preloadImagesForAnimation(
-      String animationId,
-      List<String> urls,
-      Factory factory,
-      ) async {
+    String animationId,
+    List<String> urls,
+    Factory factory,
+  ) async {
     LogManager.addLog(
       'Starting image preload for $animationId (${urls.length} images)',
       isExpected: true,
@@ -846,8 +844,6 @@ class RiveAnimationController {
     return _animations[animationId]?.properties ?? [];
   }
 
-  
-
   // ═════════════════════════════════════════════════════════════════════════════════════
   // ✅ COLOR CONVERSION METHODS - Handle multiple color formats for Rive
   // ═════════════════════════════════════════════════════════════════════════════════════
@@ -870,7 +866,6 @@ class RiveAnimationController {
       'alpha': (color.a * 255.0).round() & 0xff,
     };
   }
-
 
   Color _flexibleColorConvert(dynamic value) {
     // ✅ Already a Color object (has normalized getters)
@@ -923,10 +918,8 @@ class RiveAnimationController {
   /// Convert hex string to Color
   Color _hexToColor(String hex) {
     try {
-      String cleanHex = hex
-          .replaceFirst('0x', '')
-          .replaceFirst('#', '')
-          .toUpperCase();
+      String cleanHex =
+          hex.replaceFirst('0x', '').replaceFirst('#', '').toUpperCase();
 
       if (cleanHex.length == 3) {
         cleanHex = '${cleanHex[0]}${cleanHex[0]}'
@@ -975,7 +968,7 @@ class RiveAnimationController {
   Color _rgbaToColor(String rgba) {
     try {
       final match = RegExp(
-          r'rgba\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)')
+              r'rgba\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)')
           .firstMatch(rgba.toLowerCase());
 
       if (match == null) {
@@ -997,7 +990,8 @@ class RiveAnimationController {
 
       return Color.fromARGB(a, r, g, b);
     } catch (e) {
-      LogManager.addLog('Error parsing RGBA color $rgba: $e', isExpected: false);
+      LogManager.addLog('Error parsing RGBA color $rgba: $e',
+          isExpected: false);
       return Colors.white;
     }
   }
@@ -1028,7 +1022,8 @@ class RiveAnimationController {
       return colorMap[name]!;
     }
 
-    LogManager.addLog('Unknown named color: $name. Using white.', isExpected: false);
+    LogManager.addLog('Unknown named color: $name. Using white.',
+        isExpected: false);
     return Colors.white;
   }
 
@@ -1111,6 +1106,4 @@ class RiveAnimationController {
       return Colors.white;
     }
   }
-
 }
-

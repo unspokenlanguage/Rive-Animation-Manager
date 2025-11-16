@@ -257,8 +257,9 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
                         ),
                         Text(
                           'Time: ${_lastInput['time']}',
-                          style:
-                              TextStyle(fontSize: 11, color: materialColor.Colors.grey[600]),
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: materialColor.Colors.grey[600]),
                         ),
                       ],
                     ),
@@ -300,8 +301,9 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
                         ),
                         Text(
                           'Time: ${_lastPropertyChange['time']}',
-                          style:
-                              TextStyle(fontSize: 11, color: materialColor.Colors.grey[600]),
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: materialColor.Colors.grey[600]),
                         ),
                       ],
                     ),
@@ -329,7 +331,8 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
                       decoration: BoxDecoration(
                         color: materialColor.Colors.amber[50],
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: materialColor.Colors.amber[300]!),
+                        border:
+                            Border.all(color: materialColor.Colors.amber[300]!),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -344,7 +347,8 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
                           const SizedBox(height: 8),
                           const Text(
                             'Make sure your Rive file has ViewModel data binding configured.',
-                            style: TextStyle(fontSize: 12, color: materialColor.Colors.grey),
+                            style: TextStyle(
+                                fontSize: 12, color: materialColor.Colors.grey),
                           ),
                         ],
                       ),
@@ -406,7 +410,8 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
                   else
                     Container(
                       decoration: BoxDecoration(
-                        border: Border.all(color: materialColor.Colors.grey[300]!),
+                        border:
+                            Border.all(color: materialColor.Colors.grey[300]!),
                         borderRadius: BorderRadius.circular(8),
                         color: materialColor.Colors.grey[50],
                       ),
@@ -463,7 +468,9 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
                         '6. onDataBindingChange - Properties changed in real-time ⚡\n'
                         '7. onEventChange - Rive events fired\n'
                         '8. onAnimationComplete - Animation completed',
-                        style: TextStyle(fontSize: 11, color: materialColor.Colors.grey[700]),
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: materialColor.Colors.grey[700]),
                       ),
                       const SizedBox(height: 12),
                       const Text(

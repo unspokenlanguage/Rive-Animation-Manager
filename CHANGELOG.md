@@ -7,20 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.10]
+## [1.0.11]
 
 ### Added
 
-- **FileLoader Support with Full Initialization**: Complete async file loading support
-  - Implement full initialization pipeline in `onLoaded()` callback
-  - Support for custom file loading via FileLoader interface
-  - Async initialization for dynamically loaded animations
+- **Flexible Multi-Format Color Property Support**: Data binding color properties now accept 8 formats (hex, RGB/RGBA strings, Flutter Color, map [normalized or 0-255], list, named color), with automatic format detection
+- **Auto-Detection for Rive Normalized (0.0-1.0) Color Values**: Directly pass values as returned from Rive's API—no manual conversion needed
+- **Enhanced Color Logging**: Converts all color updates to normalized values in logs (0.0–1.0)
+- **Full Documentation & Examples**: Quick Reference and EXAMPLES.md now show updated color, property, and image flows
 
-- **FileLoader Initialization Path**
-  - Input discovery for async-loaded animations
-  - Property discovery for dynamic binding
-  - Event listener setup during async loading
-  - Full registration with global controller
+### Changed
+
+- **Controller API Consistency**: All property updates—including images and colors—use `updateDataBindingProperty(...)`
+- **Modern Flutter Color API**: Internal color conversion now uses `.r`, `.g`, `.b`, `.a` (no deprecated getters or `.value`)
+- **Improved Error Handling**: All unknown/invalid color inputs fall back to `Colors.white`
+- **Examples Updated**: All color & image operations in EXAMPLES.md now match actual API and best practices
+
+### Fixed
+
+- **Removed Deprecated API Usage**: All deprecated Color property access (`.red`, `.green`, `.blue`, `.alpha`, `.value`) replaced
+- **Typos & Invalid Usages**: Fixed non-existent method calls and minor example issues
+
 
 ### Fixed
 
