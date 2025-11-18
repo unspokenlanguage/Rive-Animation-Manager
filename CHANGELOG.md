@@ -5,7 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Released]
+## [1.0.12]
+
+### Changed
+
+- **Updated Dependency**: `rive_native` upgraded from `^0.0.16` to `^0.0.17`
+  - Improved performance and stability
+  - Latest Rive runtime features
+
+### Compatibility
+
+- Requires `rive_native: ^0.0.17` or higher
+- Fully backward compatible with v1.0.11 API
+- No breaking changes
 
 ## [1.0.11]
 

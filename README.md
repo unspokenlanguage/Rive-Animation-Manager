@@ -7,6 +7,7 @@ A comprehensive Flutter package for managing Rive animations with data binding, 
 - **Global Animation Controller**: Centralized singleton for managing all Rive animations across your app
 - **State Machine Management**: Handle inputs (triggers, booleans, numbers) and state transitions
 - **Data Binding Support**: Full support for ViewModels with automatic property discovery
+- **Flexible Color Support**: 8 color formats with automatic detection (hex, RGB, Maps, Lists, named colors)
 - **Image Replacement**: Dynamically update images from assets, URLs, or raw bytes
 - **Image Caching**: Preload and cache images for instant switching without decode overhead
 - **Text Run Management**: Update and retrieve text values from animations
@@ -21,7 +22,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  rive_animation_manager: ^latest_version
+  rive_animation_manager: ^1.0.12
 ```
 
 Then run:
@@ -71,6 +72,40 @@ controller.setTextRunValue('myAnimation', 'myText', 'Hello World');
 
 // Get current values
 final value = controller.getDataBindingPropertyValue('myAnimation', 'propertyName');
+```
+
+### Color Property Updates (v1.0.11+)
+
+Update colors with 8 different formats - all automatically detected!
+
+```dart
+final controller = RiveAnimationController.instance;
+
+// Hex format
+await controller.updateDataBindingProperty('myAnimation', 'color', '#3EC293');
+
+// RGB/RGBA strings
+await controller.updateDataBindingProperty('myAnimation', 'color', 'rgb(62, 194, 147)');
+await controller.updateDataBindingProperty('myAnimation', 'color', 'rgba(62, 194, 147, 0.8)');
+
+// Flutter Color objects
+await controller.updateDataBindingProperty('myAnimation', 'color', Colors.teal);
+await controller.updateDataBindingProperty('myAnimation', 'color', Color(0xFF3EC293));
+
+// Maps (standard 0-255)
+await controller.updateDataBindingProperty('myAnimation', 'color', {'r': 62, 'g': 194, 'b': 147});
+
+// Maps (Rive normalized 0.0-1.0) - Auto-detected!
+await controller.updateDataBindingProperty('myAnimation', 'color', {'r': 0.2431, 'g': 0.7608, 'b': 0.5764});
+
+// Lists (standard 0-255)
+await controller.updateDataBindingProperty('myAnimation', 'color', [62, 194, 147]);
+
+// Lists (Rive normalized 0.0-1.0) - Auto-detected!
+await controller.updateDataBindingProperty('myAnimation', 'color', [0.2431, 0.7608, 0.5764]);
+
+// Named colors
+await controller.updateDataBindingProperty('myAnimation', 'color', 'teal');
 ```
 
 ### Data Binding
@@ -465,4 +500,42 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Support
 
-For issues, feature requests, or questions, please open an issue on GitHub.
+For issues, feature requests, or questions:
+
+- **GitHub Repository:** https://github.com/unspokenlanguage/RiveAnimation-Manager
+- **GitHub Issues:** https://github.com/unspokenlanguage/RiveAnimation-Manager/issues
+- **pub.dev:** https://pub.dev/packages/rive_animation_manager
+
+### Getting Help
+
+1. **Check existing issues:** Search GitHub issues first
+2. **Review documentation:** See README.md and EXAMPLES.md in the repository
+3. **Create new issue:** If not found, create a detailed issue with:
+    - Flutter version (`flutter --version`)
+    - Package version
+    - Error logs or stack trace
+    - Minimal reproducible example (MRE)
+
+### Contributing
+
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes with clear commit messages
+4. Add tests for new functionality
+5. Update documentation as needed
+6. Push to your branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request with detailed description
+
+## License
+
+This package is licensed under the MIT License. See LICENSE file for details.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for version history and updates.
+
+---
+
+**Made with ❤️ for the Flutter community**

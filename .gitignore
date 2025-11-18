@@ -5,3 +5,8 @@ build/
 *.iml
 .DS_Store
 pubspec.lock
+example/
+.idea/
+build/
+.dart_tool/
+pubspec.lock
