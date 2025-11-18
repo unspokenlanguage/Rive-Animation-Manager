@@ -10,6 +10,7 @@ import '../models/rive_animation_type.dart';
 import 'package:rive_native/rive_native.dart';
 import 'package:rive/rive.dart';
 import 'package:rive_native/src/rive_widget.dart';
+
 /// Modern RiveManager widget with full rive_native support
 ///
 /// Provides a complete animation widget with input handling, data binding,
