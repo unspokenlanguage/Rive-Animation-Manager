@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Released]
 
+
+## [1.0.14]
+
+### Changed
+
+- **Updated Dependency**: `rive_native` upgraded from `^0.0.17` to `^0.0.16` due to a recent bug on web built bug on 'rive_native: ^0.0.17'
+  - rive: ^0.14.0-dev.6 is implemented
+  - Example code is updated
+
 ## [1.0.13]
 
 ### Changed
