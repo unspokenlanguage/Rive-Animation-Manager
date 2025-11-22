@@ -9,7 +9,6 @@ import '../helpers/log_manager.dart';
 import '../models/rive_animation_type.dart';
 import 'package:rive/rive.dart';
 
-
 /// Modern RiveManager widget with full rive_native support
 ///
 /// Provides a complete animation widget with input handling, data binding,
