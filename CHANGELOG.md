@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Released]
 
+## [1.0.15]
+
+### Added
+
+- **Enhanced Interactive Example** with complete side-by-side responsive layout (desktop/mobile)
+- **Automatic UI Control Generation** - Type-specific controls generated from ViewModel properties
+- **Bidirectional Data Binding** - Real-time sync between UI controls and animation properties
+- **Type-Specific Controls** - String input, number slider, boolean switch, color picker, trigger button, enum dropdown
+- **Event Logging System** - Real-time event tracking and debugging for animation interactions
+- **Responsive Layouts** - Automatic adaptation between desktop (side-by-side) and mobile (stacked) layouts
+- **New Section: "Why This Library Matters"** - Explains benefits over manual implementation
+- **Clarified `animationId` Importance** - Documented how to control multiple `.riv` files independently
+- **"Getting Started Locally"** - Setup instructions for unpacking and running the example
+
+### Changed
+
+- **Enhanced README.md** with better structure and improved documentation
+- **Improved Example Code Documentation** - Comprehensive inline comments for every section
+- **Updated Feature List** - Added interactive controls and bidirectional updates to main features
+- **Clarified API Reference** - Better explanation of `animationId` role and importance
+- **Better Support Section** - Added link to example code and clearer troubleshooting
+
+### Documentation
+
+- Added comprehensive comments to example code (every method, callback, and helper documented)
+- Separated layout documentation for wide and narrow screens
+- Added property type control generation documentation
+- Improved getting started documentation
 
 ## [1.0.14]
 

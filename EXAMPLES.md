@@ -1,4 +1,4 @@
-# Rive Animation Manager - Example Usage (v1.0.10+)
+# Rive Animation Manager - Example Usage (v1.0.15+)
 
 This file demonstrates complete usage patterns for the Rive Animation Manager package.
 

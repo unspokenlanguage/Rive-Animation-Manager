@@ -1,12 +1,83 @@
 # Rive Animation Manager
 
-A comprehensive Flutter package for managing Rive animations with data binding, image replacement, and global state management capabilities.
+A comprehensive Flutter package for managing Rive animations with bidirectional data binding, interactive controls, image replacement, and global state management capabilities.
+
+## What's New in v1.0.15
+
+**Enhanced Interactive Example** ✨
+- Complete side-by-side responsive layout (desktop/mobile)
+- Type-specific interactive controls for all property types
+- **Real-time bidirectional updates**: UI ↔ Rive animation
+- Automatic ViewModel property discovery and UI generation
+- Production-ready example code with comprehensive documentation
+- Event logging system for debugging and monitoring
+
+> **See the enhanced example:** Run `dart pub unpack rive_animation_manager` and check the `/example` folder for fully documented, production-ready code demonstrating all features.
+
+## Why This Library Matters
+
+Managing Rive animations in Flutter can be complex when you need to:
+
+- ❌ **Manually track** dozens of state machine inputs across multiple animations
+- ❌ **Manually define** every property, input, and callback for each animation instance
+- ❌ **Duplicate code** when managing multiple Rive files with similar interactions
+- ❌ **Handle image replacements** without built-in caching or optimization
+- ❌ **Debug issues** without visibility into animation state and property values
+
+**This library solves all of this with:**
+
+✅ **Global Controller** - One centralized singleton manages all animations app-wide  
+✅ **Automatic Discovery** - ViewModel properties are automatically detected and exposed  
+✅ **Type-Safe Updates** - Update any property (string, number, boolean, color, trigger) with one method  
+✅ **Animation ID System** - Unique IDs let you control multiple `.riv` files independently  
+✅ **Built-in Caching** - Image and property path caching for optimal performance  
+✅ **Comprehensive Logging** - Debug with full visibility into all animation interactions
+
+### The Power of `animationId`
+
+The `animationId` is the **key differentiator** that makes this library powerful for complex apps:
+
+```dart
+// ✅ Load multiple animations independently
+RiveManager(
+  animationId: 'heroAnimation',      // Unique ID
+  riveFilePath: 'assets/hero.riv',
+)
+
+RiveManager(
+  animationId: 'backgroundAnimation', // Different ID
+  riveFilePath: 'assets/background.riv',
+)
+
+// ✅ Control them independently from anywhere
+final controller = RiveAnimationController.instance;
+
+// Update hero animation
+await controller.updateDataBindingProperty('heroAnimation', 'progress', 0.75);
+
+// Update background animation
+await controller.updateDataBindingProperty('backgroundAnimation', 'opacity', 0.5);
+```
+
+**Without this library**, you'd need to:
+- Store separate references to each animation's state
+- Manually expose each property update method
+- Track all state machine inputs yourself
+- Handle image replacements manually for each instance
+
+**With this library**, you get:
+- One global controller for all animations
+- Access any animation by its ID from anywhere
+- Automatic property discovery and type handling
+- Built-in caching and optimization
 
 ## Features
 
 - **Global Animation Controller**: Centralized singleton for managing all Rive animations across your app
 - **State Machine Management**: Handle inputs (triggers, booleans, numbers) and state transitions
 - **Data Binding Support**: Full support for ViewModels with automatic property discovery
+- **Interactive Controls**: Automatic generation of type-specific UI controls (string, number, boolean, color, trigger, enum)
+- **Bidirectional Updates**: Real-time sync between UI controls and animation properties
 - **Flexible Color Support**: 8 color formats with automatic detection (hex, RGB, Maps, Lists, named colors)
 - **Image Replacement**: Dynamically update images from assets, URLs, or raw bytes
 - **Image Caching**: Preload and cache images for instant switching without decode overhead
@@ -14,6 +85,7 @@ A comprehensive Flutter package for managing Rive animations with data binding, 
 - **Input Callbacks**: Real-time callbacks for input changes, triggers, and hover actions
 - **Event Handling**: Listen to Rive events with state context
 - **Property Caching**: Optimized nested property path caching for performance
+- **Responsive Layouts**: Automatic layout adaptation for desktop and mobile screens
 - **Comprehensive Logging**: Debug logging with configurable log manager
 
 ## Installation
@@ -22,7 +94,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  rive_animation_manager: ^1.0.14
+  rive_animation_manager: ^1.0.15
 ```
 
 Then run:
@@ -30,6 +102,33 @@ Then run:
 ```bash
 flutter pub get
 ```
+
+## Getting Started Locally
+
+To unpack the package source code and run the enhanced interactive example:
+
+```bash
+# Unpack the package source code and example app
+dart pub unpack rive_animation_manager
+
+# Navigate to the example folder
+cd rive_animation_manager/example
+
+# Create the platform folders (if not already created)
+flutter create .
+
+# Fetch dependencies
+flutter pub get
+
+# Run the example app
+flutter run
+```
+
+This will launch the interactive example showcasing:
+- **Desktop View**: Side-by-side layout with Rive animation on left and controls on right
+- **Mobile View**: Stacked layout optimized for smaller screens
+- **Property Controls**: Auto-generated controls based on your Rive file's ViewModel properties
+- **Event Logging**: Real-time event tracking and debugging
 
 ## Quick Start
 
@@ -39,7 +138,7 @@ flutter pub get
 import 'package:rive_animation_manager/rive_animation_manager.dart';
 
 RiveManager(
-  animationId: 'myAnimation',
+  animationId: 'myAnimation',  // 🔑 Unique ID to control this animation
   riveFilePath: 'assets/animations/my_animation.riv',
   animationType: RiveAnimationType.stateMachine,
   onInit: (artboard) {
@@ -264,11 +363,9 @@ print('Cached images: ${stats['totalCachedImages']}');
 print('Cached property paths: ${stats['totalCachedPropertyPaths']}');
 ```
 
-## Logging - Corrected Section for QUICK_REFERENCE.md
+### Logging
 
-## Logging (Corrected)
-
-### Add Logs
+Add and retrieve logs for debugging:
 
 ```dart
 import 'package:rive_animation_manager/rive_animation_manager.dart';
@@ -279,153 +376,21 @@ LogManager.addLog('Animation loaded successfully');
 // Add a log with error flag
 LogManager.addLog('Failed to load animation', isExpected: false);
 
-// Add multiple logs at once
-LogManager.addMultipleLogs([
-  'Log 1',
-  'Log 2',
-  'Log 3',
-]);
-```
-
-### Retrieve Logs
-
-```dart
 // Get all logs as strings
 List<String> allLogs = LogManager.logs;
 
 // Get last N logs
 final recentLogs = LogManager.getLastLogsAsStrings(10);
-for (var log in recentLogs) {
-  print(log);
-}
-
-// Get log counts
-int totalLogs = LogManager.logCount;
-int errorLogs = LogManager.errorCount;
-int infoLogs = LogManager.infoCount;
-```
-
-### Filter & Search Logs
-
-```dart
-// Get only error logs
-List<Map<String, dynamic>> errors = LogManager.getLogsByType(false);
-
-// Get only info logs
-List<Map<String, dynamic>> infos = LogManager.getLogsByType(true);
 
 // Search logs by keyword
 List<Map<String, dynamic>> results = LogManager.searchLogs('animation');
 for (var log in results) {
   print('${log['timestamp']}: ${log['message']}');
 }
-```
 
-### Export Logs
-
-```dart
-// Export all logs as formatted string
-String formatted = LogManager.exportAsString();
-print(formatted);
-
-// Export all logs as JSON
+// Export logs as JSON
 String json = LogManager.exportAsJSON();
-print(json);
 ```
-
-### Clear Logs
-
-```dart
-// Clear all logs
-LogManager.clearLogs();
-```
-
-### Reactive UI Updates
-
-```dart
-// Listen to log changes
-LogManager.logMessages.addListener(() {
-  print('Logs updated!');
-});
-
-// Use in ValueListenableBuilder for real-time UI updates
-ValueListenableBuilder<List<Map<String, dynamic>>>(
-  valueListenable: LogManager.logMessages,
-  builder: (context, logs, _) {
-    return ListView.builder(
-      itemCount: logs.length,
-      itemBuilder: (context, index) {
-        final log = logs[index];
-        final isError = log['type'] == 'error';
-        
-        return ListTile(
-          leading: Icon(
-            isError ? Icons.error : Icons.info,
-            color: isError ? Colors.red : Colors.blue,
-          ),
-          title: Text(log['message']),
-          subtitle: Text(log['timestamp']),
-          trailing: Text(log['type']),
-        );
-      },
-    );
-  },
-);
-```
-
-## Log Entry Structure
-
-Each log is stored as a `Map<String, dynamic>` with the following structure:
-
-```dart
-{
-  'message': 'The log message',    // String
-  'text': 'The log message',       // String (same as message)
-  'timestamp': '14:32:45',         // String in HH:MM:SS format
-  'type': 'info',                  // String: 'info' or 'error'
-  'isExpected': true,              // bool: true = info, false = error
-}
-```
-
-## Complete LogManager API
-
-### Methods
-
-| Method | Purpose | Example |
-|--------|---------|---------|
-| `addLog()` | Add single log | `LogManager.addLog('message')` |
-| `addMultipleLogs()` | Add multiple logs | `LogManager.addMultipleLogs(['log1', 'log2'])` |
-| `clearLogs()` | Clear all logs | `LogManager.clearLogs()` |
-| `getLastLogsAsStrings()` | Get last N logs | `LogManager.getLastLogsAsStrings(10)` |
-| `getLogsByType()` | Filter by type | `LogManager.getLogsByType(true)` |
-| `searchLogs()` | Search logs | `LogManager.searchLogs('keyword')` |
-| `exportAsString()` | Export formatted | `LogManager.exportAsString()` |
-| `exportAsJSON()` | Export as JSON | `LogManager.exportAsJSON()` |
-| `dispose()` | Cleanup | `LogManager.dispose()` |
-
-### Properties
-
-| Property | Type | Purpose |
-|----------|------|---------|
-| `logs` | `List<String>` | All logs as strings |
-| `logCount` | `int` | Total number of logs |
-| `errorCount` | `int` | Number of error logs |
-| `infoCount` | `int` | Number of info logs |
-| `logMessages` | `ValueNotifier<List<Map>>` | For reactive UI updates |
-| `mounted` | `bool` | Check if widget binding available |
-
-## Logging Levels
-
-LogManager uses a simple two-level logging system:
-
-```dart
-// Info level (default)
-LogManager.addLog('Animation loaded', isExpected: true);  // ✅ Info
-
-// Error level
-LogManager.addLog('Failed to load', isExpected: false);   // ❌ Error
-```
-
 
 ## API Reference
 
@@ -450,7 +415,7 @@ Global singleton for managing all Rive animations.
 Flutter widget for displaying Rive animations.
 
 **Constructor Parameters:**
-- `animationId` - Unique identifier for this animation instance
+- `animationId` - **Unique identifier** for this animation instance (enables global control)
 - `riveFilePath` - Path to .riv file in assets
 - `externalFile` - External Rive file (alternative to riveFilePath)
 - `fileLoader` - Custom file loader
@@ -490,31 +455,24 @@ Flutter widget for displaying Rive animations.
 - Enable property path caching (automatic)
 - Monitor cache stats with `getCacheStats()`
 
-## License
-
-This package is licensed under the MIT License. See LICENSE file for details.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
 ## Support
 
 For issues, feature requests, or questions:
 
-- **GitHub Repository:** https://github.com/unspokenlanguage/RiveAnimation-Manager
-- **GitHub Issues:** https://github.com/unspokenlanguage/RiveAnimation-Manager/issues
-- **pub.dev:** https://pub.dev/packages/rive_animation_manager
+- **GitHub Repository:** [https://github.com/unspokenlanguage/RiveAnimation-Manager](https://github.com/unspokenlanguage/RiveAnimation-Manager)
+- **GitHub Issues:** [https://github.com/unspokenlanguage/RiveAnimation-Manager/issues](https://github.com/unspokenlanguage/RiveAnimation-Manager/issues)
+- **pub.dev:** [https://pub.dev/packages/rive_animation_manager](https://pub.dev/packages/rive_animation_manager)
 
 ### Getting Help
 
 1. **Check existing issues:** Search GitHub issues first
-2. **Review documentation:** See README.md and EXAMPLES.md in the repository
-3. **Create new issue:** If not found, create a detailed issue with:
-    - Flutter version (`flutter --version`)
-    - Package version
-    - Error logs or stack trace
-    - Minimal reproducible example (MRE)
+2. **Review documentation:** See README.md, EXAMPLES.md, and QUICK_REFERENCE.md in the repository
+3. **Run the example:** Use `dart pub unpack rive_animation_manager` to explore the fully documented example
+4. **Create new issue:** If not found, create a detailed issue with:
+   - Flutter version (`flutter --version`)
+   - Package version
+   - Error logs or stack trace
+   - Minimal reproducible example (MRE)
 
 ### Contributing
 
@@ -528,13 +486,28 @@ Contributions are welcome! Please:
 6. Push to your branch (`git push origin feature/amazing-feature`)
 7. Open a Pull Request with detailed description
 
+## Requirements
+
+- Flutter 3.0.0 or higher
+- Dart 3.0.0 or higher
+- rive_native package dependency
+
 ## License
 
 This package is licensed under the MIT License. See LICENSE file for details.
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for version history and updates.
+### v1.0.15 (Current)
+- **Enhanced Interactive Example** with side-by-side responsive layout
+- **Automatic UI control generation** from ViewModel properties
+- **Bidirectional data binding** demonstrations
+- **Type-specific controls** for string, number, boolean, color, trigger, and enum properties
+- **Comprehensive documentation** in example code
+- Added "Getting Started Locally" section to README
+- Added "Why This Library Matters" section explaining benefits over manual implementation
+- Clarified `animationId` role and importance for multi-animation management
+
 
 ---
 

@@ -1,5 +1,3 @@
-// lib/src/controller/rive_animation_controller.dart - COMPLETE WITH COLOR CONVERTERS
-
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:rive_native/rive_native.dart';
