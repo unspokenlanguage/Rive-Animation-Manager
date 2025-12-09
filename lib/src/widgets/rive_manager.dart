@@ -1,12 +1,16 @@
 // lib/src/widgets/rive_manager.dart
 
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:rive_native/rive_native.dart' as rive_native;
 
 import '../controller/rive_animation_controller.dart';
 import '../helpers/log_manager.dart';
 import '../models/rive_animation_type.dart';
+import '../models/rive_render_mode.dart';
+import '../painters/headless_rive_painter.dart';
 import 'package:rive/rive.dart';
 
 /// Modern RiveManager widget with full rive_native support
@@ -32,6 +36,9 @@ class RiveManager extends StatefulWidget {
   final FileLoader? fileLoader;
   final RiveAnimationType animationType;
 
+  // Data binding strategy (optional, defaults to auto-discovery)
+  final DataBind? dataBind;
+
   // Display properties
   final Fit fit;
   final Alignment alignment;
@@ -42,6 +49,28 @@ class RiveManager extends StatefulWidget {
   // Image replacement
   final bool enableImageReplacement;
   final ImageAsset? imageAssetReference;
+
+  // === RenderTexture Mode (Approach B — Zero-Copy GPU Pipeline) ===
+  /// Rendering mode: [RiveRenderMode.widget] (default) or
+  /// [RiveRenderMode.texture] for headless GPU rendering.
+  final RiveRenderMode renderMode;
+
+  /// Width of the GPU texture in pixels. Required when [renderMode] is
+  /// [RiveRenderMode.texture]. Defaults to 1920.
+  final int textureWidth;
+
+  /// Height of the GPU texture in pixels. Required when [renderMode] is
+  /// [RiveRenderMode.texture]. Defaults to 1080.
+  final int textureHeight;
+
+  /// Called when the GPU [RenderTexture] is created and ready for use.
+  /// Use this to access the texture for compositing or broadcast pipelines.
+  final void Function(rive_native.RenderTexture texture)? onTextureReady;
+
+  /// Convenience callback that fires with the native GPU texture pointer
+  /// address (e.g., MTLTexture* on macOS). Use for FFI-based IOSurface
+  /// integration.
+  final void Function(int nativePointerAddress)? onNativeTexturePointer;
 
   // Callbacks
   final void Function(Artboard artboard)? onInit;
@@ -65,6 +94,7 @@ class RiveManager extends StatefulWidget {
     this.externalFile,
     this.fileLoader,
     this.animationType = RiveAnimationType.stateMachine,
+    this.dataBind,
     this.fit = Fit.contain,
     this.alignment = Alignment.center,
     this.hitTestBehavior = RiveHitTestBehavior.opaque,
@@ -72,6 +102,11 @@ class RiveManager extends StatefulWidget {
     this.layoutScaleFactor = 1.0,
     this.enableImageReplacement = false,
     this.imageAssetReference,
+    this.renderMode = RiveRenderMode.widget,
+    this.textureWidth = 1920,
+    this.textureHeight = 1080,
+    this.onTextureReady,
+    this.onNativeTexturePointer,
     this.onInit,
     this.onInputChange,
     this.onHoverAction,
@@ -95,6 +130,14 @@ class RiveManagerState extends State<RiveManager> {
   bool _isInitializing = false;
   final Map<String, Map<String, dynamic>> _propertyCache = {};
 
+  // === RenderTexture Mode State ===
+  rive_native.RenderTexture? _renderTexture;
+  HeadlessRivePainter? _headlessPainter;
+
+  /// The underlying GPU [RenderTexture] when in texture mode, or null.
+  /// Access the native pointer via [renderTexture?.nativeTexture].
+  rive_native.RenderTexture? get renderTexture => _renderTexture;
+
   String _currentStateName = '';
   bool _isInitialized = false;
 
@@ -106,6 +149,9 @@ class RiveManagerState extends State<RiveManager> {
 
   // Image asset reference
   ImageAsset? _imageAssetReference;
+
+  // Font asset reference
+  FontAsset? _fontAssetReference;
 
   // ========== PUBLIC GETTERS FOR CONTROLLER ACCESS ==========
 
@@ -124,7 +170,28 @@ class RiveManagerState extends State<RiveManager> {
   /// Get the image asset reference
   ImageAsset? get imageAssetReference => _imageAssetReference;
 
+  /// Get the font asset reference
+  FontAsset? get fontAssetReference => _fontAssetReference;
+
   // ========== END PUBLIC GETTERS ==========
+
+  /// Safe setState that defers to post-frame callback.
+  /// Prevents !_dirty assertions when Rive runtime listeners fire
+  /// synchronously during the widget's own build phase.
+  bool _setStatePending = false;
+
+  void _safeSetState(VoidCallback fn) {
+    fn(); // Apply the state mutation immediately
+    if (!mounted) return;
+    if (_setStatePending) return; // Already scheduled
+    _setStatePending = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setStatePending = false;
+      if (mounted) {
+        setState(() {}); // Trigger a single rebuild
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -156,8 +223,10 @@ class RiveManagerState extends State<RiveManager> {
       try {
         _controller!.stateMachine.removeEventListener(_onRiveEvent);
       } catch (e) {
-        LogManager.addLog('Error removing event listener: $e',
-            isExpected: false);
+        LogManager.addLog(
+          'Error removing event listener: $e',
+          isExpected: false,
+        );
       }
     }
 
@@ -176,6 +245,12 @@ class RiveManagerState extends State<RiveManager> {
     }
 
     _propertyCache.clear();
+
+    // Clean up headless texture resources
+    _headlessPainter?.dispose();
+    _headlessPainter = null;
+    _renderTexture?.dispose();
+    _renderTexture = null;
 
     _viewModelInstance?.dispose();
     _controller?.dispose();
@@ -231,6 +306,17 @@ class RiveManagerState extends State<RiveManager> {
       );
     }
     return _imageAssetReference;
+  }
+
+  /// Public API: Get the FontAsset reference for this animation
+  FontAsset? getFontAsset() {
+    if (_fontAssetReference == null) {
+      LogManager.addLog(
+        'No FontAsset reference available for ${widget.animationId}',
+        isExpected: false,
+      );
+    }
+    return _fontAssetReference;
   }
 
   /// Public API: Update image from URL
@@ -364,10 +450,7 @@ class RiveManagerState extends State<RiveManager> {
 
   Future<void> _loadRiveFileStandard() async {
     try {
-      _file = await File.asset(
-        widget.riveFilePath!,
-        riveFactory: Factory.rive,
-      );
+      _file = await File.asset(widget.riveFilePath!, riveFactory: Factory.rive);
 
       LogManager.addLog(
         'Rive file loaded from: ${widget.riveFilePath}',
@@ -381,20 +464,26 @@ class RiveManagerState extends State<RiveManager> {
       await _discoverInputs();
       await _discoverDataBindingProperties();
 
-      RiveAnimationController.instance.register(widget.animationId, this);
-
-      if (widget.onInit != null) {
-        widget.onInit!(_controller!.artboard);
-        LogManager.addLog(
-          'onInit callback executed for: ${widget.animationId}',
-          isExpected: true,
-        );
+      // Setup headless texture if in texture mode
+      if (widget.renderMode == RiveRenderMode.texture) {
+        await _setupHeadlessTexture();
       }
+
+      RiveAnimationController.instance.register(widget.animationId, this);
 
       if (mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             setState(() => _isInitialized = true);
+          }
+          // Fire user callbacks AFTER setState so any parent setState
+          // they trigger schedules on the next frame, not during this build.
+          if (widget.onInit != null) {
+            widget.onInit!(_controller!.artboard);
+            LogManager.addLog(
+              'onInit callback executed for: ${widget.animationId}',
+              isExpected: true,
+            );
           }
         });
       }
@@ -419,8 +508,10 @@ class RiveManagerState extends State<RiveManager> {
         assetLoader: (asset, bytes) {
           if (asset is ImageAsset && bytes == null) {
             _imageAssetReference = asset;
-            RiveAnimationController.instance
-                .registerImageAsset(widget.animationId, asset);
+            RiveAnimationController.instance.registerImageAsset(
+              widget.animationId,
+              asset,
+            );
 
             LogManager.addLog(
               'Image asset intercepted for: ${widget.animationId}',
@@ -431,11 +522,18 @@ class RiveManagerState extends State<RiveManager> {
           }
 
           if (asset is FontAsset && bytes == null) {
+            _fontAssetReference = asset;
+            RiveAnimationController.instance.registerFontAsset(
+              widget.animationId,
+              asset,
+            );
+
             LogManager.addLog(
-              'Font asset detected for: ${widget.animationId}',
+              'Font asset intercepted for: ${widget.animationId}',
               isExpected: true,
             );
-            return false;
+
+            return true;
           }
 
           return false;
@@ -455,16 +553,22 @@ class RiveManagerState extends State<RiveManager> {
       await _discoverDataBindingProperties();
       await _discoverArtboards();
 
-      RiveAnimationController.instance.register(widget.animationId, this);
-
-      if (widget.onInit != null) {
-        widget.onInit!(_controller!.artboard);
+      // Setup headless texture if in texture mode
+      if (widget.renderMode == RiveRenderMode.texture) {
+        await _setupHeadlessTexture();
       }
+
+      RiveAnimationController.instance.register(widget.animationId, this);
 
       if (mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             setState(() => _isInitialized = true);
+          }
+          // Fire user callbacks AFTER setState so any parent setState
+          // they trigger schedules on the next frame, not during this build.
+          if (widget.onInit != null) {
+            widget.onInit!(_controller!.artboard);
           }
         });
       }
@@ -565,6 +669,213 @@ class RiveManagerState extends State<RiveManager> {
     }
   }
 
+  // ========== FONT REPLACEMENT API ==========
+
+  /// Public API: Update font from raw bytes (.ttf, .otf)
+  Future<void> updateFontFromBytes(Uint8List bytes) async {
+    if (_fontAssetReference == null) {
+      LogManager.addLog(
+        'Cannot update font from bytes: No font asset for ${widget.animationId}',
+        isExpected: false,
+      );
+      return;
+    }
+
+    try {
+      await _fontAssetReference!.decode(bytes);
+
+      if (mounted) {
+        setState(() {});
+      }
+
+      LogManager.addLog(
+        'Successfully decoded and updated font for: ${widget.animationId} (${bytes.length} bytes)',
+        isExpected: true,
+      );
+    } catch (e) {
+      LogManager.addLog(
+        'Failed to decode font for ${widget.animationId}: $e',
+        isExpected: false,
+      );
+    }
+  }
+
+  /// Public API: Load font from asset bundle
+  Future<void> updateFontFromAsset(String assetPath) async {
+    if (_fontAssetReference == null) {
+      LogManager.addLog(
+        'Cannot update font from asset: No font asset for ${widget.animationId}',
+        isExpected: false,
+      );
+      return;
+    }
+
+    try {
+      LogManager.addLog(
+        'Loading font from asset for ${widget.animationId}: $assetPath',
+        isExpected: true,
+      );
+
+      final bytes = await rootBundle.load(assetPath);
+      await _fontAssetReference!.decode(bytes.buffer.asUint8List());
+
+      if (mounted) {
+        setState(() {});
+      }
+
+      LogManager.addLog(
+        'Successfully loaded font from asset for: ${widget.animationId}',
+        isExpected: true,
+      );
+    } catch (e) {
+      LogManager.addLog(
+        'Failed to load font from asset for ${widget.animationId}: $e',
+        isExpected: false,
+      );
+    }
+  }
+
+  /// Public API: Load font from URL
+  Future<void> updateFontFromUrl(String url) async {
+    if (_fontAssetReference == null) {
+      LogManager.addLog(
+        'Cannot update font from URL: No font asset for ${widget.animationId}',
+        isExpected: false,
+      );
+      return;
+    }
+
+    try {
+      LogManager.addLog(
+        'Fetching font from URL for ${widget.animationId}: $url',
+        isExpected: true,
+      );
+
+      final response = await http.get(Uri.parse(url));
+
+      if (response.statusCode != 200) {
+        LogManager.addLog(
+          'HTTP error fetching font for ${widget.animationId}: ${response.statusCode}',
+          isExpected: false,
+        );
+        return;
+      }
+
+      await _fontAssetReference!.decode(
+        Uint8List.view(response.bodyBytes.buffer),
+      );
+
+      if (mounted) {
+        setState(() {});
+      }
+
+      LogManager.addLog(
+        'Successfully loaded font from URL for: ${widget.animationId}',
+        isExpected: true,
+      );
+    } catch (e, stack) {
+      LogManager.addLog(
+        'Failed to load font from URL for ${widget.animationId}: $e\n$stack',
+        isExpected: false,
+      );
+    }
+  }
+
+  // ========== THUMBNAIL / SNAPSHOT API ==========
+
+  /// Captures a snapshot of the current animation frame as a [ui.Image].
+  ///
+  /// In texture mode: uses `RenderTexture.toImage()` (GPU-direct, instant).
+  /// In widget mode: creates a temporary RenderTexture, draws one frame,
+  /// captures, then disposes.
+  ///
+  /// Returns null if the animation is not initialized.
+  Future<ui.Image?> captureSnapshot({
+    required int width,
+    required int height,
+  }) async {
+    if (_controller == null) {
+      LogManager.addLog(
+        'Cannot capture snapshot: controller not initialized for ${widget.animationId}',
+        isExpected: false,
+      );
+      return null;
+    }
+
+    try {
+      // If we already have a render texture (texture mode), use it directly
+      if (_renderTexture != null && _renderTexture!.isReady) {
+        LogManager.addLog(
+          'Capturing snapshot from existing RenderTexture for ${widget.animationId}',
+          isExpected: true,
+        );
+        return await _renderTexture!.toImage();
+      }
+
+      // Widget mode: create a temporary texture, render one frame, capture
+      final tempTexture = rive_native.RiveNative.instance.makeRenderTexture();
+      await tempTexture.makeRenderTexture(width, height);
+
+      // Draw one frame into the temp texture
+      tempTexture.clear(const Color(0x00000000));
+      final renderer = tempTexture.renderer;
+      renderer.save();
+
+      final artboard = _controller!.artboard;
+      renderer.align(
+        widget.fit,
+        widget.alignment,
+        AABB.fromValues(0, 0, width.toDouble(), height.toDouble()),
+        artboard.bounds,
+        widget.layoutScaleFactor,
+      );
+      artboard.draw(renderer);
+      renderer.restore();
+      tempTexture.flush(1.0);
+
+      // Capture
+      final image = await tempTexture.toImage();
+
+      // Cleanup
+      tempTexture.dispose();
+
+      LogManager.addLog(
+        'Captured snapshot from temp RenderTexture for ${widget.animationId} (${width}x$height)',
+        isExpected: true,
+      );
+
+      return image;
+    } catch (e) {
+      LogManager.addLog(
+        'Failed to capture snapshot for ${widget.animationId}: $e',
+        isExpected: false,
+      );
+      return null;
+    }
+  }
+
+  /// Convenience: captures a snapshot and returns PNG bytes directly.
+  ///
+  /// Returns null if the animation is not initialized or capture fails.
+  Future<Uint8List?> captureSnapshotAsPng({
+    required int width,
+    required int height,
+  }) async {
+    final image = await captureSnapshot(width: width, height: height);
+    if (image == null) return null;
+
+    try {
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      return byteData?.buffer.asUint8List();
+    } catch (e) {
+      LogManager.addLog(
+        'Failed to encode snapshot as PNG for ${widget.animationId}: $e',
+        isExpected: false,
+      );
+      return null;
+    }
+  }
+
   void loadExternalFile(File file) {
     try {
       _file = file;
@@ -585,15 +896,10 @@ class RiveManagerState extends State<RiveManager> {
 
       _controller?.stateMachine.addEventListener(_onRiveEvent);
 
-      Future.wait([
-        _discoverInputs(),
-        _discoverDataBindingProperties(),
-      ]).then((_) {
+      Future.wait([_discoverInputs(), _discoverDataBindingProperties()]).then((
+        _,
+      ) {
         RiveAnimationController.instance.register(widget.animationId, this);
-
-        if (widget.onInit != null) {
-          widget.onInit!(_controller!.artboard);
-        }
 
         if (mounted) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -601,6 +907,11 @@ class RiveManagerState extends State<RiveManager> {
               setState(() {
                 _isInitialized = true;
               });
+            }
+            // Fire user callbacks AFTER setState so any parent setState
+            // they trigger schedules on the next frame, not during this build.
+            if (widget.onInit != null) {
+              widget.onInit!(_controller!.artboard);
             }
           });
         }
@@ -779,12 +1090,13 @@ class RiveManagerState extends State<RiveManager> {
       );
 
       try {
-        _viewModelInstance = _controller?.dataBind(DataBind.auto());
+        final bindStrategy = widget.dataBind ?? DataBind.auto();
+        _viewModelInstance = _controller?.dataBind(bindStrategy);
 
         if (_viewModelInstance != null &&
             _viewModelInstance!.properties.isNotEmpty) {
           LogManager.addLog(
-            'Auto-discovered ViewModel for ${widget.animationId} with ${_viewModelInstance!.properties.length} properties',
+            'Discovered ViewModel for ${widget.animationId} with ${_viewModelInstance!.properties.length} properties (strategy: ${bindStrategy.runtimeType})',
             isExpected: true,
           );
           _processViewModelInstance(_viewModelInstance!);
@@ -796,7 +1108,7 @@ class RiveManagerState extends State<RiveManager> {
         }
       } catch (autoDiscoveryError) {
         LogManager.addLog(
-          'Auto-discovery failed for ${widget.animationId}: $autoDiscoveryError',
+          'Discovery failed for ${widget.animationId}: $autoDiscoveryError',
           isExpected: false,
         );
       }
@@ -808,8 +1120,9 @@ class RiveManagerState extends State<RiveManager> {
             if (viewModel != null) {
               final vmInstance = viewModel.createDefaultInstance();
               if (vmInstance != null && vmInstance.properties.isNotEmpty) {
-                _viewModelInstance =
-                    _controller?.dataBind(DataBind.byInstance(vmInstance));
+                _viewModelInstance = _controller?.dataBind(
+                  DataBind.byInstance(vmInstance),
+                );
 
                 if (_viewModelInstance != null) {
                   LogManager.addLog(
@@ -831,7 +1144,13 @@ class RiveManagerState extends State<RiveManager> {
       }
 
       if (_properties.isNotEmpty) {
-        widget.onViewModelPropertiesDiscovered?.call(_properties);
+        // Defer the callback to a post-frame callback so any parent setState
+        // it triggers doesn't overlap with the current build phase.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            widget.onViewModelPropertiesDiscovered?.call(_properties);
+          }
+        });
         LogManager.addLog(
           'Discovered ${_properties.length} properties for ${widget.animationId}',
           isExpected: true,
@@ -864,6 +1183,26 @@ class RiveManagerState extends State<RiveManager> {
         stringProp?.addListener((value) {
           widget.onDataBindingChange?.call(name, 'string', value);
         });
+      } else if (type == DataType.trigger) {
+        final triggerProp = vmInstance.trigger(name);
+        _properties.add({
+          'name': name,
+          'type': 'trigger',
+          'value': null,
+          'property': triggerProp,
+        });
+
+        // ✅ Add the boolean parameter (usually true when fired)
+        triggerProp?.addListener((bool triggered) {
+          if (triggered) {
+            widget.onDataBindingChange?.call(name, 'trigger', true);
+          }
+        });
+
+        LogManager.addLog(
+          'Discovered trigger property: $name',
+          isExpected: true,
+        );
       } else if (type == DataType.number) {
         final numberProp = vmInstance.number(name);
         _properties.add({
@@ -908,11 +1247,6 @@ class RiveManagerState extends State<RiveManager> {
           'value': null,
           'property': imageProp,
         });
-
-        LogManager.addLog(
-          'Discovered image property: $name',
-          isExpected: true,
-        );
       } else if (type == DataType.enumType) {
         final enumProp = vmInstance.enumerator(name);
         _properties.add({
@@ -925,21 +1259,7 @@ class RiveManagerState extends State<RiveManager> {
         enumProp?.addListener((value) {
           widget.onDataBindingChange?.call(name, 'enumType', value);
         });
-      } else if (type == DataType.trigger) {
-        final triggerProp = vmInstance.trigger(name);
-        _properties.add({
-          'name': name,
-          'type': 'trigger',
-          'value': null,
-          'property': triggerProp,
-        });
-
-        LogManager.addLog(
-          'Discovered trigger property: $name',
-          isExpected: true,
-        );
       } else if (type == DataType.viewModel) {
-        // ✅ NEW: HANDLE NESTED VIEWMODELS!
         final nestedVM = vmInstance.viewModel(name);
         if (nestedVM != null) {
           _properties.add({
@@ -947,8 +1267,10 @@ class RiveManagerState extends State<RiveManager> {
             'type': 'viewModel',
             'value': null,
             'property': nestedVM,
-            'nestedProperties':
-                _discoverNestedProperties(nestedVM, name), // ✅ RECURSIVE!
+            'nestedProperties': _discoverNestedProperties(
+              nestedVM,
+              name,
+            ),
           });
 
           LogManager.addLog(
@@ -956,6 +1278,85 @@ class RiveManagerState extends State<RiveManager> {
             isExpected: true,
           );
         }
+      } else if (type == DataType.integer) {
+        // Integer uses the same ViewModelInstanceNumber API
+        final numberProp = vmInstance.number(name);
+        _properties.add({
+          'name': name,
+          'type': 'integer',
+          'value': numberProp?.value.toInt() ?? 0,
+          'property': numberProp,
+        });
+
+        numberProp?.addListener((value) {
+          widget.onDataBindingChange?.call(name, 'integer', value.toInt());
+        });
+      } else if (type == DataType.list) {
+        final listProp = vmInstance.list(name);
+        if (listProp != null) {
+          // Discover list items as nested ViewModelInstances
+          final List<Map<String, dynamic>> listItems = [];
+          for (int i = 0; i < listProp.length; i++) {
+            try {
+              final itemVM = listProp.instanceAt(i);
+              listItems.add({
+                'index': i,
+                'name': itemVM.name,
+                'properties': _discoverNestedProperties(itemVM, '$name[$i]'),
+              });
+            } catch (e) {
+              LogManager.addLog(
+                'Error accessing list item $i for $name in ${widget.animationId}: $e',
+                isExpected: false,
+              );
+            }
+          }
+
+          _properties.add({
+            'name': name,
+            'type': 'list',
+            'value': listProp.length,
+            'property': listProp,
+            'listItems': listItems,
+          });
+
+          LogManager.addLog(
+            'Discovered list property: $name with ${listProp.length} items',
+            isExpected: true,
+          );
+        }
+      } else if (type == DataType.artboard) {
+        final artboardProp = vmInstance.artboard(name);
+        _properties.add({
+          'name': name,
+          'type': 'artboard',
+          'value': null,
+          'property': artboardProp,
+        });
+
+        LogManager.addLog(
+          'Discovered artboard property: $name',
+          isExpected: true,
+        );
+      } else if (type == DataType.symbolListIndex) {
+        // SymbolListIndex is an observable integer property
+        final prop = vmInstance.number(name);
+        _properties.add({
+          'name': name,
+          'type': 'symbolListIndex',
+          'value': prop?.value.toInt() ?? 0,
+          'property': prop,
+        });
+
+        prop?.addListener((value) {
+          widget.onDataBindingChange
+              ?.call(name, 'symbolListIndex', value.toInt());
+        });
+      } else if (type == DataType.none) {
+        LogManager.addLog(
+          'Skipping DataType.none property: $name in ${widget.animationId}',
+          isExpected: true,
+        );
       } else {
         LogManager.addLog(
           'Unsupported property type for ${widget.animationId}: $name (${type.name})',
@@ -1000,7 +1401,7 @@ class RiveManagerState extends State<RiveManager> {
               nestedInfo['value'] = prop.value;
               prop.addListener((newValue) {
                 if (mounted) {
-                  setState(() => nestedInfo['value'] = newValue);
+                  _safeSetState(() => nestedInfo['value'] = newValue);
                 }
               });
               processedCount++;
@@ -1014,7 +1415,7 @@ class RiveManagerState extends State<RiveManager> {
               nestedInfo['value'] = prop.value;
               prop.addListener((newValue) {
                 if (mounted) {
-                  setState(() => nestedInfo['value'] = newValue);
+                  _safeSetState(() => nestedInfo['value'] = newValue);
                 }
               });
               processedCount++;
@@ -1028,25 +1429,150 @@ class RiveManagerState extends State<RiveManager> {
               nestedInfo['value'] = prop.value;
               prop.addListener((newValue) {
                 if (mounted) {
-                  setState(() => nestedInfo['value'] = newValue);
+                  _safeSetState(() => nestedInfo['value'] = newValue);
+                }
+              });
+              processedCount++;
+            }
+            break;
+          case DataType.trigger:
+            final prop = nestedVM.trigger(propName);
+            if (prop != null) {
+              nestedInfo['property'] = prop;
+              nestedInfo['value'] = null;
+
+              prop.addListener((bool fired) {
+                // We pass 'true' to your callback to notify Flutter the trigger happened
+                widget.onDataBindingChange?.call(fullPath, 'trigger', true);
+                if (mounted) {
+                  _safeSetState(() {});
+                }
+              });
+              processedCount++;
+            }
+            break;
+          case DataType.viewModel:
+            final deepNestedVM = nestedVM.viewModel(propName);
+            if (deepNestedVM != null) {
+              nestedInfo['property'] = deepNestedVM;
+              nestedInfo['nestedProperties'] = _discoverNestedProperties(
+                deepNestedVM,
+                fullPath,
+              );
+              processedCount++;
+            }
+            break;
+
+          case DataType.color:
+            final prop = nestedVM.color(propName);
+            if (prop != null) {
+              nestedInfo['property'] = prop;
+              nestedInfo['value'] = prop.value;
+              prop.addListener((newValue) {
+                widget.onDataBindingChange?.call(fullPath, 'color', newValue);
+                if (mounted) {
+                  _safeSetState(() => nestedInfo['value'] = newValue);
                 }
               });
               processedCount++;
             }
             break;
 
-          case DataType.viewModel:
-            final deepNestedVM = nestedVM.viewModel(propName);
-            if (deepNestedVM != null) {
-              nestedInfo['property'] = deepNestedVM;
-              // ✅ RECURSIVE CALL FOR DEEPLY NESTED PROPERTIES!
-              nestedInfo['nestedProperties'] =
-                  _discoverNestedProperties(deepNestedVM, fullPath);
+          case DataType.image:
+            final prop = nestedVM.image(propName);
+            if (prop != null) {
+              nestedInfo['property'] = prop;
+              nestedInfo['value'] = null;
               processedCount++;
             }
             break;
 
-          default:
+          case DataType.enumType:
+            final prop = nestedVM.enumerator(propName);
+            if (prop != null) {
+              nestedInfo['property'] = prop;
+              nestedInfo['value'] = prop.value;
+              prop.addListener((newValue) {
+                widget.onDataBindingChange
+                    ?.call(fullPath, 'enumType', newValue);
+                if (mounted) {
+                  _safeSetState(() => nestedInfo['value'] = newValue);
+                }
+              });
+              processedCount++;
+            }
+            break;
+
+          case DataType.integer:
+            final prop = nestedVM.number(propName);
+            if (prop != null) {
+              nestedInfo['property'] = prop;
+              nestedInfo['value'] = prop.value.toInt();
+              prop.addListener((newValue) {
+                widget.onDataBindingChange
+                    ?.call(fullPath, 'integer', newValue.toInt());
+                if (mounted) {
+                  _safeSetState(() => nestedInfo['value'] = newValue.toInt());
+                }
+              });
+              processedCount++;
+            }
+            break;
+
+          case DataType.list:
+            final listProp = nestedVM.list(propName);
+            if (listProp != null) {
+              nestedInfo['property'] = listProp;
+              nestedInfo['value'] = listProp.length;
+              final List<Map<String, dynamic>> listItems = [];
+              for (int i = 0; i < listProp.length; i++) {
+                try {
+                  final itemVM = listProp.instanceAt(i);
+                  listItems.add({
+                    'index': i,
+                    'name': itemVM.name,
+                    'properties':
+                        _discoverNestedProperties(itemVM, '$fullPath[$i]'),
+                  });
+                } catch (e) {
+                  LogManager.addLog(
+                    'Error accessing nested list item $i for $fullPath: $e',
+                    isExpected: false,
+                  );
+                }
+              }
+              nestedInfo['listItems'] = listItems;
+              processedCount++;
+            }
+            break;
+
+          case DataType.artboard:
+            final prop = nestedVM.artboard(propName);
+            if (prop != null) {
+              nestedInfo['property'] = prop;
+              nestedInfo['value'] = null;
+              processedCount++;
+            }
+            break;
+
+          case DataType.symbolListIndex:
+            final prop = nestedVM.number(propName);
+            if (prop != null) {
+              nestedInfo['property'] = prop;
+              nestedInfo['value'] = prop.value.toInt();
+              prop.addListener((newValue) {
+                widget.onDataBindingChange
+                    ?.call(fullPath, 'symbolListIndex', newValue.toInt());
+                if (mounted) {
+                  _safeSetState(() => nestedInfo['value'] = newValue.toInt());
+                }
+              });
+              processedCount++;
+            }
+            break;
+
+          case DataType.none:
+            // Skip none type properties
             break;
         }
 
@@ -1105,11 +1631,15 @@ class RiveManagerState extends State<RiveManager> {
     _discoverInputs();
     _discoverDataBindingProperties();
 
-    if (widget.onInit != null) {
-      widget.onInit!(_controller!.artboard);
-    }
-
-    setState(() => _isInitialized = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() => _isInitialized = true);
+      }
+      // Fire user callback AFTER setState
+      if (widget.onInit != null) {
+        widget.onInit!(_controller!.artboard);
+      }
+    });
 
     LogManager.addLog(
       'Artboard selection complete for ${widget.animationId}: "$artboardName"',
@@ -1141,11 +1671,79 @@ class RiveManagerState extends State<RiveManager> {
     }
   }
 
+  // === RenderTexture Setup (Approach B) ===
+
+  /// Creates the headless GPU texture and painter for texture render mode.
+  /// Called after _controller is set up and data binding is discovered.
+  Future<void> _setupHeadlessTexture() async {
+    if (_controller == null) return;
+
+    try {
+      // Create the GPU texture
+      _renderTexture = rive_native.RiveNative.instance.makeRenderTexture();
+      await _renderTexture!.makeRenderTexture(
+        widget.textureWidth,
+        widget.textureHeight,
+      );
+
+      // Create the headless painter that drives the render loop
+      _headlessPainter = HeadlessRivePainter(
+        controller: _controller!,
+        fit: widget.fit,
+        alignment: widget.alignment,
+        layoutScaleFactor: widget.layoutScaleFactor,
+      );
+
+      LogManager.addLog(
+        'Headless RenderTexture created: ${widget.textureWidth}x${widget.textureHeight} '
+        'for ${widget.animationId}',
+        isExpected: true,
+      );
+
+      // Fire callbacks
+      widget.onTextureReady?.call(_renderTexture!);
+
+      if (_renderTexture!.nativeTexture != null) {
+        final address = _renderTexture!.nativeTexture.address;
+        widget.onNativeTexturePointer?.call(address);
+        LogManager.addLog(
+          'Native texture pointer: 0x${address.toRadixString(16)} '
+          'for ${widget.animationId}',
+          isExpected: true,
+        );
+      }
+    } catch (e) {
+      LogManager.addLog(
+        'Failed to setup headless texture for ${widget.animationId}: $e',
+        isExpected: false,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // 🟢 CPU OPTIMIZATION: Stop rendering/ticking if TickerMode is disabled (e.g. hidden tab)
+    if (!TickerMode.of(context)) {
+      return const SizedBox.shrink();
+    }
+
     if (!_isInitialized) {
       return const Center(child: CircularProgressIndicator());
     }
+
+    // === TEXTURE MODE: Headless GPU rendering ===
+    if (widget.renderMode == RiveRenderMode.texture && _renderTexture != null) {
+      // The texture widget drives the render loop via its internal ticker.
+      // We wrap it in a 1x1 SizedBox so it's effectively invisible but
+      // still in the widget tree (required for ticker to work).
+      return SizedBox(
+        width: 1,
+        height: 1,
+        child: _renderTexture!.widget(painter: _headlessPainter),
+      );
+    }
+
+    // === WIDGET MODE: Standard visible rendering ===
     if (widget.fileLoader != null) {
       return RiveWidgetBuilder(
         fileLoader: widget.fileLoader!,
@@ -1186,11 +1784,20 @@ class RiveManagerState extends State<RiveManager> {
             _discoverDataBindingProperties(),
           ]);
 
+          // ✅ SETUP HEADLESS TEXTURE IF NEEDED
+          if (widget.renderMode == RiveRenderMode.texture) {
+            await _setupHeadlessTexture();
+          }
+
           // ✅ REGISTER WITH GLOBAL CONTROLLER
           RiveAnimationController.instance.register(widget.animationId, this);
 
-          // ✅ CALL USER CALLBACK
-          widget.onInit?.call(riveLoaded.controller.artboard);
+          // ✅ CALL USER CALLBACK (deferred to post-frame to avoid dirty widget assertions)
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              widget.onInit?.call(riveLoaded.controller.artboard);
+            }
+          });
 
           LogManager.addLog(
             'FileLoader animation fully initialized: ${widget.animationId}',

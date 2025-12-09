@@ -6,6 +6,62 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Released]
+## [1.0.17]
+
+### Added
+
+- **Headless RenderTexture Mode** — New `RiveRenderMode.texture` rendering mode for zero-copy GPU pipeline integration
+  - `renderMode` parameter on `RiveManager` to choose between `widget` (default) and `texture` modes
+  - `textureWidth` / `textureHeight` parameters for configuring GPU texture resolution (defaults to 1920×1080)
+  - `onTextureReady` callback fired when the GPU `RenderTexture` is available
+  - `onNativeTexturePointer` callback providing the native GPU texture pointer address (MTLTexture* on macOS) for FFI-based IOSurface integration
+  - All data binding, property discovery, and controller APIs work identically in texture mode
+- **`HeadlessRivePainter`** — New `RenderTexturePainter` subclass that drives Rive animation into a GPU texture with transparent background
+- **`RiveRenderMode` enum** — `widget` | `texture` for choosing rendering strategy
+- **`getNativeTexturePointer()`** on `RiveAnimationController` — Retrieves native GPU texture pointer by animation ID for FFI consumers
+- **Font Replacement API** — Dynamic font swapping for Rive animations (mirrors image replacement pattern)
+  - `updateFontFromBytes(Uint8List)` — Decode and apply font from raw .ttf/.otf bytes
+  - `updateFontFromAsset(String)` — Load font from Flutter asset bundle
+  - `updateFontFromUrl(String)` — Fetch and apply font from URL
+  - Controller methods: `registerFontAsset()`, `getFontAsset()`, `updateFontFromUrl/Bytes/Asset()`
+  - FontAsset interception in asset loader (with `enableImageReplacement: true`)
+- **Thumbnail / Snapshot API** — GPU-direct animation frame capture
+  - `captureSnapshot({required int width, required int height})` — Returns `ui.Image` from current frame
+  - `captureSnapshotAsPng({required int width, required int height})` — Returns PNG bytes directly
+  - `captureAnimationThumbnail()` on controller — Capture by animation ID
+  - Works in both widget mode (temp texture) and texture mode (existing texture)
+  - Replaces fragile `RepaintBoundary + debugNeedsPaint` approach
+- **Complete DataType Coverage** — Added support for `DataType.list`, `DataType.artboard`, `DataType.integer`, `DataType.symbolListIndex`, and `DataType.none` in property discovery
+- **List Property Discovery** — List ViewModel properties are automatically discovered with item count and nested properties for each list item
+- **Artboard Property Support** — Artboard ViewModel properties can be discovered and updated via `BindableArtboard`
+- **Integer Property Type** — Dedicated integer handling with automatic `toInt()` conversion (distinct from `number`/double)
+- **DataBind Strategy Parameter** — New optional `dataBind` parameter on `RiveManager` widget allowing users to specify `DataBind.byName()`, `DataBind.byIndex()`, or other strategies (defaults to `DataBind.auto()`)
+
+### Changed
+
+- Updated Rive runtime dependencies:
+  - `rive_native` upgraded from `^0.1.0` to `^0.1.2`
+  - `rive` upgraded from `^0.14.0` to `^0.14.2`
+- `RiveManagerState` now exposes `renderTexture` getter for direct access to the underlying GPU texture
+- `RiveManagerState` now exposes `fontAssetReference` getter for font asset access
+- **Controller Update Support** — `_updatePropertyInstance` now supports `font`, `integer`, `symbolListIndex`, `list` (read-only collection), and `artboard` property types
+- **Cleaned up empty `lib/test.dart`** file
+
+### Fixed
+
+- **Duplicate DataType.trigger Branch Removed** — Removed dead-code duplicate trigger handler in `_processViewModelInstance` that could never be reached
+- **Complete Nested Property Discovery** — `_discoverNestedProperties` now handles all ViewModel property types: `color`, `image`, `enumType`, `integer`, `list`, `artboard`, `symbolListIndex`, and `none` (previously only handled `number`, `boolean`, `string`, `trigger`, `viewModel`)
+- **`!_dirty` Widget Assertion Fix** — Resolved `setState` during build phase that caused `!_dirty is not true` assertion errors. All user-facing callbacks (`onInit`, `onViewModelPropertiesDiscovered`) are now deferred to `addPostFrameCallback`, and data binding property listeners use a safe batched setState pattern via `_safeSetState()`
+
+## [1.0.16]
+
+### Changed
+
+- Updated Rive runtime dependencies to stable releases:
+  - `rive_native` upgraded to `^0.1.0`
+  - `rive` upgraded to `^0.14.0`
+- Verified compatibility of core features (data binding, image replacement, logging, and interactive example) with the latest Rive runtimes.
+
 
 ## [1.0.15]
 

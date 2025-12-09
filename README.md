@@ -1,18 +1,28 @@
 # Rive Animation Manager
 
-A comprehensive Flutter package for managing Rive animations with bidirectional data binding, interactive controls, image replacement, and global state management capabilities.
+A comprehensive Flutter package for managing Rive animations with bidirectional data binding, interactive controls, image replacement, font replacement, GPU thumbnail capture, and global state management capabilities.
 
-## What's New in v1.0.15
+## What's New in v1.0.17
 
-**Enhanced Interactive Example** ✨
-- Complete side-by-side responsive layout (desktop/mobile)
-- Type-specific interactive controls for all property types
-- **Real-time bidirectional updates**: UI ↔ Rive animation
-- Automatic ViewModel property discovery and UI generation
-- Production-ready example code with comprehensive documentation
-- Event logging system for debugging and monitoring
+**Headless RenderTexture Mode** 🎨
+- Render Rive animations to a GPU texture without a visible widget — ideal for broadcast compositors and zero-copy IOSurface pipelines
+- New `RiveRenderMode.texture` mode with `textureWidth/Height`, `onTextureReady`, and `onNativeTexturePointer` callbacks
 
-> **See the enhanced example:** Run `dart pub unpack rive_animation_manager` and check the `/example` folder for fully documented, production-ready code demonstrating all features.
+**Font Replacement API** ✨
+- Dynamic font swapping at runtime, mirroring the image replacement pattern
+- `updateFontFromBytes()`, `updateFontFromAsset()`, `updateFontFromUrl()` — supports .ttf and .otf
+- FontAsset interception with `enableImageReplacement: true`
+
+**Thumbnail / Snapshot API** 📸
+- GPU-direct frame capture via `RenderTexture.toImage()` — no `RepaintBoundary` needed
+- `captureSnapshot()` returns `ui.Image`, `captureSnapshotAsPng()` returns PNG bytes
+- `captureAnimationThumbnail()` on controller for one-liner thumbnail generation
+
+**Complete DataType Coverage**
+- All 13 Rive DataType variants supported: `string`, `number`, `integer`, `boolean`, `color`, `trigger`, `enumType`, `image`, `font`, `list`, `artboard`, `viewModel`, `symbolListIndex`
+- `DataBind` strategy parameter for ViewModel binding
+
+> **See the full examples:** Run `dart pub unpack rive_animation_manager` and check the `/example` folder and `EXAMPLES.md` for fully documented usage patterns.
 
 ## Why This Library Matters
 
@@ -80,6 +90,9 @@ await controller.updateDataBindingProperty('backgroundAnimation', 'opacity', 0.5
 - **Bidirectional Updates**: Real-time sync between UI controls and animation properties
 - **Flexible Color Support**: 8 color formats with automatic detection (hex, RGB, Maps, Lists, named colors)
 - **Image Replacement**: Dynamically update images from assets, URLs, or raw bytes
+- **Font Replacement**: Dynamically swap fonts from assets, URLs, or raw bytes (.ttf/.otf)
+- **Thumbnail Capture**: GPU-direct animation frame capture as `ui.Image` or PNG bytes
+- **Headless RenderTexture Mode**: Render to GPU texture without widget display for broadcast pipelines
 - **Image Caching**: Preload and cache images for instant switching without decode overhead
 - **Text Run Management**: Update and retrieve text values from animations
 - **Input Callbacks**: Real-time callbacks for input changes, triggers, and hover actions
@@ -94,7 +107,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  rive_animation_manager: ^1.0.15
+  rive_animation_manager: ^1.0.17
 ```
 
 Then run:
@@ -271,6 +284,102 @@ if (state != null) {
 }
 ```
 
+### Font Replacement
+
+Enable font replacement for dynamic font updates (uses the same `enableImageReplacement` flag):
+
+```dart
+RiveManager(
+  animationId: 'myAnimation',
+  riveFilePath: 'assets/animations/my_animation.riv',
+  enableImageReplacement: true, // Enables both image AND font interception
+)
+```
+
+Update fonts programmatically:
+
+```dart
+final controller = RiveAnimationController.instance;
+
+// Update from asset bundle
+await controller.updateFontFromAsset('myAnimation', 'assets/fonts/CustomFont.ttf');
+
+// Update from URL
+await controller.updateFontFromUrl(
+  'myAnimation',
+  'https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuI6fMZ.ttf',
+);
+
+// Update from raw bytes
+await controller.updateFontFromBytes('myAnimation', fontFileBytes);
+
+// Or via direct state access
+final state = controller.getAnimationState('myAnimation');
+await state?.updateFontFromUrl('https://example.com/fonts/Brand.ttf');
+```
+
+### Thumbnail / Snapshot Capture
+
+Capture any animation frame as PNG bytes or `ui.Image` using GPU-direct rendering — no `RepaintBoundary` needed:
+
+```dart
+final controller = RiveAnimationController.instance;
+
+// Capture PNG bytes (most common)
+final pngBytes = await controller.captureAnimationThumbnail(
+  'myAnimation',
+  width: 512,
+  height: 512,
+);
+
+// Save to file, upload, display, etc.
+if (pngBytes != null) {
+  await File('thumbnail.png').writeAsBytes(pngBytes);
+}
+```
+
+For a trigger-then-capture workflow:
+
+```dart
+// 1. Trigger the animation
+controller.updateDataBindingProperty('myAnimation', 'Show', true);
+
+// 2. Wait for it to settle
+await Future.delayed(Duration(milliseconds: 1000));
+
+// 3. Capture the current visual state
+final pngBytes = await controller.captureAnimationThumbnail(
+  'myAnimation',
+  width: 512,
+  height: 512,
+);
+```
+
+### Headless RenderTexture Mode
+
+Render Rive animations to a GPU texture without displaying them in the widget tree — ideal for broadcast compositors:
+
+```dart
+RiveManager(
+  animationId: 'broadcast_overlay',
+  riveFilePath: 'assets/animations/lower_third.riv',
+  renderMode: RiveRenderMode.texture,  // GPU texture mode
+  textureWidth: 1920,
+  textureHeight: 1080,
+  onTextureReady: (texture) {
+    print('GPU texture ready: textureId=${texture.textureId}');
+  },
+  onNativeTexturePointer: (address) {
+    // MTLTexture* pointer on macOS for FFI/IOSurface integration
+    print('Native pointer: 0x${address.toRadixString(16)}');
+  },
+)
+
+// Get pointer later via controller
+final pointer = RiveAnimationController.instance
+    .getNativeTexturePointer('broadcast_overlay');
+```
+
 ### Image Caching
 
 Preload images for instant switching:
@@ -406,6 +515,11 @@ Global singleton for managing all Rive animations.
 - `setTextRunValue(String id, String textRunName, String value)` - Update text
 - `updateDataBindingProperty(String id, String name, dynamic value)` - Update data binding property
 - `updateNestedProperty(String id, String path, dynamic value)` - Update nested property
+- `updateFontFromUrl(String id, String url)` - Update font from URL
+- `updateFontFromBytes(String id, Uint8List bytes)` - Update font from bytes
+- `updateFontFromAsset(String id, String assetPath)` - Update font from asset bundle
+- `captureAnimationThumbnail(String id, {required int width, required int height})` - Capture frame as PNG
+- `getNativeTexturePointer(String id)` - Get native GPU texture pointer (texture mode)
 - `preloadImagesForAnimation(String id, List<String> urls, Factory factory)` - Cache images
 - `updateImageFromCache(String id, int index)` - Use cached image
 - `getCacheStats()` - Get cache statistics
@@ -419,7 +533,9 @@ Flutter widget for displaying Rive animations.
 - `riveFilePath` - Path to .riv file in assets
 - `externalFile` - External Rive file (alternative to riveFilePath)
 - `fileLoader` - Custom file loader
-- `enableImageReplacement` - Enable dynamic image updates
+- `enableImageReplacement` - Enable dynamic image and font updates
+- `renderMode` - `RiveRenderMode.widget` (default) or `RiveRenderMode.texture`
+- `textureWidth` / `textureHeight` - GPU texture resolution (texture mode)
 - Various display properties: `fit`, `alignment`, `hitTestBehavior`, etc.
 
 **Callbacks:**
@@ -428,6 +544,8 @@ Flutter widget for displaying Rive animations.
 - `onTriggerAction` - Called when trigger fires
 - `onViewModelPropertiesDiscovered` - Called when data binding properties found
 - `onDataBindingChange` - Called when data binding property changes
+- `onTextureReady` - Called when GPU texture is ready (texture mode)
+- `onNativeTexturePointer` - Called with native texture pointer address (texture mode)
 
 ## Best Practices
 
@@ -498,15 +616,21 @@ This package is licensed under the MIT License. See LICENSE file for details.
 
 ## Changelog
 
-### v1.0.15 (Current)
-- **Enhanced Interactive Example** with side-by-side responsive layout
-- **Automatic UI control generation** from ViewModel properties
-- **Bidirectional data binding** demonstrations
-- **Type-specific controls** for string, number, boolean, color, trigger, and enum properties
-- **Comprehensive documentation** in example code
-- Added "Getting Started Locally" section to README
-- Added "Why This Library Matters" section explaining benefits over manual implementation
-- Clarified `animationId` role and importance for multi-animation management
+### v1.0.17 (Current)
+- **Headless RenderTexture Mode** for zero-copy GPU pipeline integration
+- **Font Replacement API** — `updateFontFromBytes/Asset/Url` mirroring image replacement
+- **Thumbnail / Snapshot API** — GPU-direct frame capture via `RenderTexture.toImage()`
+- **Complete DataType Coverage** — All 13 Rive DataType variants supported
+- **DataBind Strategy Parameter** — `DataBind.auto()`, `byName()`, `byIndex()`, `empty()`
+- **List, Artboard, Integer, SymbolListIndex** property types
+
+### v1.0.16
+- Updated to stable Rive runtimes: `rive_native ^0.1.2`, `rive ^0.14.2`
+
+### v1.0.15
+- Enhanced interactive example with side-by-side responsive layout
+- Automatic UI control generation from ViewModel properties
+- Bidirectional data binding demonstrations
 
 
 ---

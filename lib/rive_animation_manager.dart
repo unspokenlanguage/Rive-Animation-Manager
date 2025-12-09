@@ -49,6 +49,7 @@ export 'src/widgets/rive_manager.dart';
 
 // Export models
 export '/src/models/rive_animation_type.dart';
+export 'src/models/rive_render_mode.dart';
 
 // Export helpers
 export '/src/helpers/log_manager.dart';

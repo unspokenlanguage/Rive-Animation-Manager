@@ -20,6 +20,7 @@ class RiveAnimationController {
   // Registry of all active animations
   final Map<String, RiveManagerState> _animations = {};
   final Map<String, ImageAsset> _imageAssets = {};
+  final Map<String, FontAsset> _fontAssets = {};
   final Map<String, List<RenderImage>> _imageCache = {};
   final Map<String, Map<String, Map<String, dynamic>>> _propertyPathCache = {};
 
@@ -104,6 +105,7 @@ class RiveAnimationController {
   void deregister(String animationId) {
     _animations.remove(animationId);
     _imageAssets.remove(animationId);
+    _fontAssets.remove(animationId);
 
     final cache = _imageCache.remove(animationId);
     if (cache != null) {
@@ -118,6 +120,44 @@ class RiveAnimationController {
 
     _propertyPathCache.remove(animationId);
     LogManager.addLog('Deregistered animation: $animationId', isExpected: true);
+  }
+
+  /// Get the native GPU texture pointer address for an animation.
+  ///
+  /// Returns the MTLTexture pointer address on macOS, or null if the
+  /// animation is not in texture render mode or hasn't been initialized.
+  ///
+  /// Use this for FFI-based IOSurface integration in broadcast pipelines.
+  ///
+  /// Example:
+  /// ```dart
+  /// final pointer = RiveAnimationController.instance
+  ///     .getNativeTexturePointer('myAnimation');
+  /// if (pointer != null) {
+  ///   // Pass to native code via FFI
+  ///   nativeBridge.attachTexture(Pointer.fromAddress(pointer));
+  /// }
+  /// ```
+  int? getNativeTexturePointer(String animationId) {
+    final state = _animations[animationId];
+    if (state?.renderTexture == null) {
+      LogManager.addLog(
+        'No render texture for $animationId (not in texture mode?)',
+        isExpected: false,
+      );
+      return null;
+    }
+    try {
+      final nativePtr = state!.renderTexture!.nativeTexture;
+      if (nativePtr == null) return null;
+      return nativePtr.address;
+    } catch (e) {
+      LogManager.addLog(
+        'Failed to get native texture pointer for $animationId: $e',
+        isExpected: false,
+      );
+      return null;
+    }
   }
 
   /// Update a data binding property by name
@@ -371,6 +411,47 @@ class RiveAnimationController {
             propertyInfo,
           );
 
+        case 'font':
+          return await _updateFontProperty(
+            animationId,
+            propertyName,
+            newValue,
+            propertyInfo,
+          );
+
+        case 'integer':
+        case 'symbolListIndex':
+          if (propertyInstance is ViewModelInstanceNumber && newValue is num) {
+            propertyInstance.value = newValue.toDouble();
+            propertyInfo['value'] = newValue.toInt();
+            LogManager.addLog(
+              'Updated $propertyType property $propertyName to ${newValue.toInt()} in $animationId',
+              isExpected: true,
+            );
+            return true;
+          }
+          break;
+
+        case 'list':
+          LogManager.addLog(
+            'List property $propertyName is a collection — use the list API (add/remove/insert) to modify items',
+            isExpected: true,
+          );
+          return false;
+
+        case 'artboard':
+          if (propertyInstance is ViewModelInstanceArtboard &&
+              newValue is BindableArtboard) {
+            propertyInstance.value = newValue;
+            propertyInfo['value'] = newValue;
+            LogManager.addLog(
+              'Updated artboard property $propertyName in $animationId',
+              isExpected: true,
+            );
+            return true;
+          }
+          break;
+
         default:
           LogManager.addLog(
             'Unsupported property type: $propertyType for $propertyName',
@@ -391,6 +472,107 @@ class RiveAnimationController {
       isExpected: false,
     );
     return false;
+  }
+
+  /// Update a font property in a ViewModel instance.
+  ///
+  /// Accepts:
+  /// - [String] file path or URL
+  /// - [Uint8List] raw font bytes (.ttf, .otf)
+  Future<bool> _updateFontProperty(
+    String animationId,
+    String propertyName,
+    dynamic value,
+    Map<String, dynamic> propertyInfo,
+  ) async {
+    try {
+      final state = _animations[animationId];
+      if (state == null) {
+        LogManager.addLog('Animation $animationId not found',
+            isExpected: false);
+        return false;
+      }
+
+      Uint8List? bytes;
+
+      // Handle string (file path or URL)
+      if (value is String) {
+        // Local file path
+        if (!value.startsWith('http')) {
+          LogManager.addLog(
+            'Loading font from local file: $value',
+            isExpected: true,
+          );
+
+          final file = io.File(value);
+          if (!await file.exists()) {
+            LogManager.addLog(
+              'Font file not found: $value',
+              isExpected: false,
+            );
+            return false;
+          }
+          bytes = await file.readAsBytes();
+        }
+        // URL
+        else {
+          LogManager.addLog(
+            'Loading font from URL: $value',
+            isExpected: true,
+          );
+          final response = await http.get(Uri.parse(value));
+          if (response.statusCode != 200) {
+            LogManager.addLog(
+              'Failed to fetch font from URL: ${response.statusCode}',
+              isExpected: false,
+            );
+            return false;
+          }
+          bytes = response.bodyBytes;
+        }
+      }
+      // Raw bytes
+      else if (value is Uint8List) {
+        bytes = value;
+      } else {
+        LogManager.addLog(
+          'Invalid font value type: ${value.runtimeType}',
+          isExpected: false,
+        );
+        return false;
+      }
+
+      // Use the font asset reference from the state
+      final fontAsset = state.fontAssetReference;
+      if (fontAsset == null) {
+        LogManager.addLog(
+          'No font asset reference for $animationId — cannot decode font',
+          isExpected: false,
+        );
+        return false;
+      }
+
+      final success = await fontAsset.decode(bytes);
+      if (!success) {
+        LogManager.addLog(
+          'Failed to decode font for $propertyName in $animationId',
+          isExpected: false,
+        );
+        return false;
+      }
+
+      LogManager.addLog(
+        '✅ Successfully updated font property $propertyName in $animationId',
+        isExpected: true,
+      );
+      return true;
+    } catch (e, stack) {
+      LogManager.addLog(
+        'Error updating font property: $e\n$stack',
+        isExpected: false,
+      );
+      return false;
+    }
   }
 
   Future<bool> _updateImageProperty(
@@ -740,6 +922,99 @@ class RiveAnimationController {
     }
 
     await state.updateImageFromUrl(url);
+  }
+
+  // ========== FONT ASSET API ==========
+
+  /// Register font asset
+  void registerFontAsset(String animationId, FontAsset asset) {
+    _fontAssets[animationId] = asset;
+    LogManager.addLog(
+      'Registered font asset for: $animationId',
+      isExpected: true,
+    );
+  }
+
+  /// Get FontAsset from an animation
+  FontAsset? getFontAsset(String animationId) {
+    final state = _animations[animationId];
+    if (state == null) {
+      LogManager.addLog(
+        'Cannot get FontAsset: Animation $animationId not found',
+        isExpected: false,
+      );
+      return null;
+    }
+
+    return state.getFontAsset();
+  }
+
+  /// Update font from URL for an animation
+  Future<void> updateFontFromUrl(String animationId, String url) async {
+    final state = _animations[animationId];
+
+    if (state == null) {
+      LogManager.addLog(
+        'Cannot update font: Animation $animationId not found',
+        isExpected: false,
+      );
+      return;
+    }
+
+    await state.updateFontFromUrl(url);
+  }
+
+  /// Update font from raw bytes for an animation
+  Future<void> updateFontFromBytes(String animationId, Uint8List bytes) async {
+    final state = _animations[animationId];
+
+    if (state == null) {
+      LogManager.addLog(
+        'Cannot update font: Animation $animationId not found',
+        isExpected: false,
+      );
+      return;
+    }
+
+    await state.updateFontFromBytes(bytes);
+  }
+
+  /// Update font from asset bundle for an animation
+  Future<void> updateFontFromAsset(String animationId, String assetPath) async {
+    final state = _animations[animationId];
+
+    if (state == null) {
+      LogManager.addLog(
+        'Cannot update font: Animation $animationId not found',
+        isExpected: false,
+      );
+      return;
+    }
+
+    await state.updateFontFromAsset(assetPath);
+  }
+
+  // ========== THUMBNAIL / SNAPSHOT API ==========
+
+  /// Capture a thumbnail for any registered animation by ID.
+  ///
+  /// Uses RenderTexture.toImage() for GPU-direct snapshot capture.
+  /// Works in both widget mode and texture mode.
+  Future<Uint8List?> captureAnimationThumbnail(
+    String animationId, {
+    required int width,
+    required int height,
+  }) async {
+    final state = _animations[animationId];
+    if (state == null) {
+      LogManager.addLog(
+        'Cannot capture thumbnail: Animation $animationId not found',
+        isExpected: false,
+      );
+      return null;
+    }
+
+    return state.captureSnapshotAsPng(width: width, height: height);
   }
 
   /// Preload and cache images for instant swapping
