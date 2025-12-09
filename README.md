@@ -1,6 +1,13 @@
 # Rive Animation Manager
 
 A comprehensive Flutter package for managing Rive animations with bidirectional data binding, interactive controls, image replacement, and global state management capabilities.
+## What's New in v1.0.16
+
+- Updated to the latest stable Rive runtimes:
+   - `rive_native: ^0.1.0`
+   - `rive: ^0.14.0`
+- Confirmed full compatibility of data binding, image replacement, interactive example, and logging with these versions.
+
 
 ## What's New in v1.0.15
 
@@ -94,7 +101,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  rive_animation_manager: ^1.0.15
+  rive_animation_manager: ^1.0.16
 ```
 
 Then run:
