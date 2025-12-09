@@ -908,11 +908,6 @@ class RiveManagerState extends State<RiveManager> {
           'value': null,
           'property': imageProp,
         });
-
-        LogManager.addLog(
-          'Discovered image property: $name',
-          isExpected: true,
-        );
       } else if (type == DataType.enumType) {
         final enumProp = vmInstance.enumerator(name);
         _properties.add({
@@ -936,6 +931,19 @@ class RiveManagerState extends State<RiveManager> {
 
         LogManager.addLog(
           'Discovered trigger property: $name',
+          isExpected: true,
+        );
+      } else if (type == DataType.image) {
+        final imageProp = vmInstance.image(name);
+        _properties.add({
+          'name': name,
+          'type': 'image',
+          'value': null,
+          'property': imageProp,
+        });
+
+        LogManager.addLog(
+          'Discovered image property: $name',
           isExpected: true,
         );
       } else if (type == DataType.viewModel) {
