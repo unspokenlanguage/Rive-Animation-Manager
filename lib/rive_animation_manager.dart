@@ -51,5 +51,8 @@ export 'src/widgets/rive_manager.dart';
 export '/src/models/rive_animation_type.dart';
 export 'src/models/rive_render_mode.dart';
 
+// Export painters
+export 'src/painters/headless_rive_painter.dart';
+
 // Export helpers
 export '/src/helpers/log_manager.dart';

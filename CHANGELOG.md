@@ -5,7 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Released]
+## [1.0.19]
+
+### Added
+
+- **`onRendererPointer` Callback** — New callback on `RiveManager` providing the `MetalTextureRenderer*` pointer address for dynamic triple-buffer texture resolution in FFI-based GPU pipelines
+- **Texture Re-Registration** — `onTextureChanged` handler auto-fires `onNativeTexturePointer` and `onRendererPointer` when `rive_native` recreates the MTLTexture (e.g. due to `devicePixelRatio` scaling), keeping the GPU bus in sync
+- **`HeadlessRivePainter` Export** — `HeadlessRivePainter` is now publicly exported from the package
+
+### Changed
+
+- Updated Rive runtime dependencies:
+  - `rive_native` upgraded from `^0.1.2` to `^0.1.3` (C++ runtime update, Swift Package Manager support, `valueStream<T>` on observable properties)
+- **Headless Texture in `loadExternalFile()`** — GPU texture mode (`RiveRenderMode.texture`) is now correctly initialized when loading external Rive files via `loadExternalFile()`
+- **TickerMode Override for Texture Mode** — Headless texture rendering now wraps the render surface in `TickerMode(enabled: true)` to prevent the internal ticker from being muted when the parent widget disables TickerMode (e.g. stealth/hidden mode)
+- **OverflowBox Constraint Fix** — Texture mode render surface now uses `OverflowBox` to override parent layout constraints with exact texture dimensions (`textureWidth × textureHeight`), preventing `performLayout()` from resizing the MTLTexture when parent constraints shrink
+
+### Fixed
+
+- **Thumbnail Capture Blank PNG Fix** — Added GPU frame delay between `flush()` and `toImage()` in widget-mode snapshot capture; `rive_native ^0.1.x` pipelines rendering async, so `toImage()` called immediately after `flush()` returned a blank frame
+- **Nested Property Depth Guard** — `_discoverNestedProperties` now has a max depth of 10 to prevent stack overflow from circular ViewModel references
+
 ## [1.0.17]
 
 ### Added

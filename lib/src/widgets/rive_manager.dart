@@ -72,6 +72,11 @@ class RiveManager extends StatefulWidget {
   /// integration.
   final void Function(int nativePointerAddress)? onNativeTexturePointer;
 
+  /// Callback that fires with the MetalTextureRenderer* pointer address.
+  /// Used by the GPU pipeline to register a dynamic texture provider that
+  /// resolves the current texture from Rive's triple-buffer ring each frame.
+  final void Function(int rendererPointerAddress)? onRendererPointer;
+
   // Callbacks
   final void Function(Artboard artboard)? onInit;
   final void Function(int inputIndex, String inputName, dynamic value)?
@@ -107,6 +112,7 @@ class RiveManager extends StatefulWidget {
     this.textureHeight = 1080,
     this.onTextureReady,
     this.onNativeTexturePointer,
+    this.onRendererPointer,
     this.onInit,
     this.onInputChange,
     this.onHoverAction,
@@ -249,6 +255,7 @@ class RiveManagerState extends State<RiveManager> {
     // Clean up headless texture resources
     _headlessPainter?.dispose();
     _headlessPainter = null;
+    _renderTexture?.onTextureChanged = null;
     _renderTexture?.dispose();
     _renderTexture = null;
 
@@ -833,6 +840,11 @@ class RiveManagerState extends State<RiveManager> {
       renderer.restore();
       tempTexture.flush(1.0);
 
+      // Wait for the GPU to finish rendering before capturing.
+      // rive_native ^0.1.0 pipelines rendering async — toImage() called
+      // immediately after flush() may return a blank frame.
+      await Future.delayed(const Duration(milliseconds: 100));
+
       // Capture
       final image = await tempTexture.toImage();
 
@@ -881,15 +893,10 @@ class RiveManagerState extends State<RiveManager> {
       _file = file;
 
       if (_file == null) {
-        LogManager.addLog(
-          'External file is null for ${widget.animationId}',
-          isExpected: false,
-        );
         return;
       }
 
       LogManager.markBuildPhaseStart();
-
       _controller = RiveWidgetController(_file!);
       _isInitialized = false;
       inputs.clear();
@@ -898,7 +905,12 @@ class RiveManagerState extends State<RiveManager> {
 
       Future.wait([_discoverInputs(), _discoverDataBindingProperties()]).then((
         _,
-      ) {
+      ) async {
+        // Setup headless texture if in texture mode (GPU pipeline)
+        if (widget.renderMode == RiveRenderMode.texture) {
+          await _setupHeadlessTexture();
+        }
+
         RiveAnimationController.instance.register(widget.animationId, this);
 
         if (mounted) {
@@ -921,6 +933,8 @@ class RiveManagerState extends State<RiveManager> {
           isExpected: true,
         );
 
+        LogManager.markBuildPhaseEnd();
+      }).catchError((e, stack) {
         LogManager.markBuildPhaseEnd();
       });
     } catch (e) {
@@ -1270,6 +1284,7 @@ class RiveManagerState extends State<RiveManager> {
             'nestedProperties': _discoverNestedProperties(
               nestedVM,
               name,
+              depth: 1,
             ),
           });
 
@@ -1372,11 +1387,21 @@ class RiveManagerState extends State<RiveManager> {
     );
   }
 
-  /// Discover nested ViewModel properties recursively
+  /// Discover nested ViewModel properties recursively (with depth guard)
   List<Map<String, dynamic>> _discoverNestedProperties(
     ViewModelInstance nestedVM,
-    String parentName,
-  ) {
+    String parentName, {
+    int depth = 0,
+  }) {
+    // Guard against circular ViewModel references causing stack overflow
+    if (depth > 10) {
+      LogManager.addLog(
+        'Max nesting depth reached for $parentName in ${widget.animationId} — stopping recursion',
+        isExpected: false,
+      );
+      return [];
+    }
+
     List<Map<String, dynamic>> nestedProps = [];
     int processedCount = 0;
 
@@ -1458,6 +1483,7 @@ class RiveManagerState extends State<RiveManager> {
               nestedInfo['nestedProperties'] = _discoverNestedProperties(
                 deepNestedVM,
                 fullPath,
+                depth: depth + 1,
               );
               processedCount++;
             }
@@ -1531,8 +1557,9 @@ class RiveManagerState extends State<RiveManager> {
                   listItems.add({
                     'index': i,
                     'name': itemVM.name,
-                    'properties':
-                        _discoverNestedProperties(itemVM, '$fullPath[$i]'),
+                    'properties': _discoverNestedProperties(
+                        itemVM, '$fullPath[$i]',
+                        depth: depth + 1),
                   });
                 } catch (e) {
                   LogManager.addLog(
@@ -1676,7 +1703,9 @@ class RiveManagerState extends State<RiveManager> {
   /// Creates the headless GPU texture and painter for texture render mode.
   /// Called after _controller is set up and data binding is discovered.
   Future<void> _setupHeadlessTexture() async {
-    if (_controller == null) return;
+    if (_controller == null) {
+      return;
+    }
 
     try {
       // Create the GPU texture
@@ -1712,6 +1741,68 @@ class RiveManagerState extends State<RiveManager> {
           isExpected: true,
         );
       }
+
+      // Fire renderer pointer callback for dynamic texture resolution
+      // NOTE: nativeRendererPointer may not be available in all rive_native versions
+      try {
+        final rendererPtr = (_renderTexture as dynamic).nativeRendererPointer;
+        if (rendererPtr != null) {
+          final rendererAddress = rendererPtr.address as int;
+          if (rendererAddress != 0) {
+            widget.onRendererPointer?.call(rendererAddress);
+            LogManager.addLog(
+              'Renderer pointer: 0x${rendererAddress.toRadixString(16)} '
+              'for ${widget.animationId}',
+              isExpected: true,
+            );
+          }
+        }
+      } catch (_) {
+        // nativeRendererPointer not available in this rive_native version
+      }
+
+      // Wire re-registration: when rive_native's performLayout() recreates
+      // the MTLTexture (e.g. due to devicePixelRatio scaling), the bus
+      // must be updated with the new pointer.
+      _renderTexture!.onTextureChanged = () {
+        if (!mounted) return;
+        final tex = _renderTexture;
+        if (tex == null || tex.isDisposed) return;
+        try {
+          final ptr = tex.nativeTexture;
+          if (ptr != null) {
+            final address = ptr.address;
+            widget.onNativeTexturePointer?.call(address);
+            LogManager.addLog(
+              'Texture re-created, new pointer: 0x${address.toRadixString(16)} '
+              'for ${widget.animationId}',
+              isExpected: true,
+            );
+          }
+          // Also re-register the renderer pointer for dynamic texture resolution
+          try {
+            final rendererPtr = (tex as dynamic).nativeRendererPointer;
+            if (rendererPtr != null) {
+              final rendererAddress = rendererPtr.address as int;
+              if (rendererAddress != 0) {
+                widget.onRendererPointer?.call(rendererAddress);
+                LogManager.addLog(
+                  'Renderer re-registered: 0x${rendererAddress.toRadixString(16)} '
+                  'for ${widget.animationId}',
+                  isExpected: true,
+                );
+              }
+            }
+          } catch (_) {
+            // nativeRendererPointer not available in this rive_native version
+          }
+        } catch (e) {
+          LogManager.addLog(
+            'onTextureChanged error for ${widget.animationId}: $e',
+            isExpected: false,
+          );
+        }
+      };
     } catch (e) {
       LogManager.addLog(
         'Failed to setup headless texture for ${widget.animationId}: $e',
@@ -1723,7 +1814,13 @@ class RiveManagerState extends State<RiveManager> {
   @override
   Widget build(BuildContext context) {
     // 🟢 CPU OPTIMIZATION: Stop rendering/ticking if TickerMode is disabled (e.g. hidden tab)
-    if (!TickerMode.of(context)) {
+    // 🚀 GPU PIPELINE: Don't stop headless texture rendering when ticker is
+    // disabled (e.g. stealth mode). The Metal compositor reads this texture
+    // directly — it doesn't flow through Flutter's visual pipeline.
+    final tickerEnabled = TickerMode.of(context);
+    if (!tickerEnabled) {
+    }
+    if (!tickerEnabled && widget.renderMode != RiveRenderMode.texture) {
       return const SizedBox.shrink();
     }
 
@@ -1734,12 +1831,29 @@ class RiveManagerState extends State<RiveManager> {
     // === TEXTURE MODE: Headless GPU rendering ===
     if (widget.renderMode == RiveRenderMode.texture && _renderTexture != null) {
       // The texture widget drives the render loop via its internal ticker.
-      // We wrap it in a 1x1 SizedBox so it's effectively invisible but
-      // still in the widget tree (required for ticker to work).
-      return SizedBox(
-        width: 1,
-        height: 1,
-        child: _renderTexture!.widget(painter: _headlessPainter),
+      // CRITICAL FIX #1 - CONSTRAINTS: The Rive RenderObject uses its Flutter
+      // layout size to determine GPU texture resolution (via performLayout).
+      // If parent constraints are small (e.g. stealth mode → 1px window),
+      // performLayout resizes the MTLTexture. OverflowBox OVERRIDES parent
+      // constraints with exact texture dimensions.
+      //
+      // CRITICAL FIX #2 - TICKER: The RenderTexture widget uses an internal
+      // ticker that respects TickerMode.of(context). In stealth mode, the
+      // parent window disables TickerMode, muting the ticker → no paint
+      // calls → transparent texture. TickerMode(enabled: true) forces the
+      // render loop to keep running so the GPU texture stays populated.
+      return TickerMode(
+        enabled: true,
+        child: SizedBox.shrink(
+          child: OverflowBox(
+            alignment: Alignment.topLeft,
+            minWidth: widget.textureWidth.toDouble(),
+            maxWidth: widget.textureWidth.toDouble(),
+            minHeight: widget.textureHeight.toDouble(),
+            maxHeight: widget.textureHeight.toDouble(),
+            child: _renderTexture!.widget(painter: _headlessPainter),
+          ),
+        ),
       );
     }
 
