@@ -24,7 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Thumbnail Capture Blank PNG Fix** — Added GPU frame delay between `flush()` and `toImage()` in widget-mode snapshot capture; `rive_native ^0.1.x` pipelines rendering async, so `toImage()` called immediately after `flush()` returned a blank frame
-- **Nested Property Depth Guard** — `_discoverNestedProperties` now has a max depth of 10 to prevent stack overflow from circular ViewModel references
 
 ## [1.0.17]
 

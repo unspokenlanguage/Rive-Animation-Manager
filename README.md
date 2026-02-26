@@ -2,7 +2,12 @@
 
 A comprehensive Flutter package for managing Rive animations with bidirectional data binding, interactive controls, image replacement, font replacement, GPU thumbnail capture, and global state management capabilities.
 
-## What's New in v1.0.17
+## What's New in v1.0.19
+
+**rive_native ^0.1.3 Support** 🚀
+- Updated C++ runtime and Swift Package Manager integration
+- Re-architected GPU texture surface resolution (`onRendererPointer` for `MetalTextureRenderer*`)
+- Improved rendering pipeline stability with TickerMode control
 
 **Headless RenderTexture Mode** 🎨
 - Render Rive animations to a GPU texture without a visible widget — ideal for broadcast compositors and zero-copy IOSurface pipelines

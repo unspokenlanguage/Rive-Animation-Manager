@@ -1284,7 +1284,6 @@ class RiveManagerState extends State<RiveManager> {
             'nestedProperties': _discoverNestedProperties(
               nestedVM,
               name,
-              depth: 1,
             ),
           });
 
@@ -1387,21 +1386,11 @@ class RiveManagerState extends State<RiveManager> {
     );
   }
 
-  /// Discover nested ViewModel properties recursively (with depth guard)
+  /// Discover nested ViewModel properties recursively
   List<Map<String, dynamic>> _discoverNestedProperties(
     ViewModelInstance nestedVM,
-    String parentName, {
-    int depth = 0,
-  }) {
-    // Guard against circular ViewModel references causing stack overflow
-    if (depth > 10) {
-      LogManager.addLog(
-        'Max nesting depth reached for $parentName in ${widget.animationId} — stopping recursion',
-        isExpected: false,
-      );
-      return [];
-    }
-
+    String parentName,
+  ) {
     List<Map<String, dynamic>> nestedProps = [];
     int processedCount = 0;
 
@@ -1483,7 +1472,6 @@ class RiveManagerState extends State<RiveManager> {
               nestedInfo['nestedProperties'] = _discoverNestedProperties(
                 deepNestedVM,
                 fullPath,
-                depth: depth + 1,
               );
               processedCount++;
             }
@@ -1557,9 +1545,8 @@ class RiveManagerState extends State<RiveManager> {
                   listItems.add({
                     'index': i,
                     'name': itemVM.name,
-                    'properties': _discoverNestedProperties(
-                        itemVM, '$fullPath[$i]',
-                        depth: depth + 1),
+                    'properties':
+                        _discoverNestedProperties(itemVM, '$fullPath[$i]'),
                   });
                 } catch (e) {
                   LogManager.addLog(
@@ -1818,8 +1805,7 @@ class RiveManagerState extends State<RiveManager> {
     // disabled (e.g. stealth mode). The Metal compositor reads this texture
     // directly — it doesn't flow through Flutter's visual pipeline.
     final tickerEnabled = TickerMode.of(context);
-    if (!tickerEnabled) {
-    }
+    if (!tickerEnabled) {}
     if (!tickerEnabled && widget.renderMode != RiveRenderMode.texture) {
       return const SizedBox.shrink();
     }
