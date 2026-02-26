@@ -213,6 +213,32 @@ class _DataBindingScreenState extends State<DataBindingScreen> {
 }
 ```
 
+### ✨ Listening to `valueStream` (v1.0.19+)
+
+If you are using `rive_native` ^0.1.3, Rive's observable data binding properties (number, boolean, string, color) now expose a `valueStream<T>` getter. 
+
+Since the Rive Animation Manager exposes the raw Rive properties in its discovery maps, you can easily tap into these streams for reactive programming without any overhead:
+
+```dart
+// Inside your onViewModelPropertiesDiscovered or similar handler:
+void _setupStreams(List<Map<String, dynamic>> discoveredProps) {
+  for (final propData in discoveredProps) {
+    if (propData['name'] == 'age') {
+      // 1. Get the raw Rive property
+      final rawProperty = propData['property'];
+      
+      // 2. Cast to observable value (if applicable)
+      if (rawProperty is ViewModelInstanceObservableValue) {
+        // 3. Listen to the native C++ value stream
+        rawProperty.valueStream.listen((newValue) {
+          print('Age stream updated: $newValue');
+        });
+      }
+    }
+  }
+}
+```
+
 ## Example 4: Dynamic Image Updates (v1.0.9+)
 
 ### ✨ Type-Safe Image Property Handling
