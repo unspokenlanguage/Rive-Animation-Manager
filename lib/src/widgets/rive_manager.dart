@@ -1267,6 +1267,7 @@ class RiveManagerState extends State<RiveManager> {
           'name': name,
           'type': 'enumType',
           'value': enumProp?.value ?? '',
+          'enumTypeName': enumProp?.enumType ?? '',
           'property': enumProp,
         });
 
@@ -1506,6 +1507,7 @@ class RiveManagerState extends State<RiveManager> {
             if (prop != null) {
               nestedInfo['property'] = prop;
               nestedInfo['value'] = prop.value;
+              nestedInfo['enumTypeName'] = prop.enumType;
               prop.addListener((newValue) {
                 widget.onDataBindingChange
                     ?.call(fullPath, 'enumType', newValue);
