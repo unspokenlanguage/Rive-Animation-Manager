@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.20]
+
+### Changed
+
+- Updated Rive runtime dependencies:
+  - `rive_native` upgraded from `^0.1.2` to `^0.1.3` (C++ runtime update, Swift Package Manager support, `valueStream<T>` on observable properties)
+  - **Flutter SDK Minimum Version** increased to `>=3.28.0` as required by `rive_native` Android surface lifecycle updates
+- **Enum Property Name Exposure** — Discovered enum properties now include an `enumTypeName` field returning the string name of the enum value (powered by `ViewModelInstanceEnum.enumType` in `rive_native` 0.1.3)
+
 ## [1.0.19]
 
 ### Added
@@ -15,10 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Updated Rive runtime dependencies:
-  - `rive_native` upgraded from `^0.1.2` to `^0.1.3` (C++ runtime update, Swift Package Manager support, `valueStream<T>` on observable properties)
-  - **Flutter SDK Minimum Version** increased to `>=3.28.0` as required by `rive_native` Android surface lifecycle updates
-- **Enum Property Name Exposure** — Discovered enum properties now include an `enumTypeName` field returning the string name of the enum value (powered by `ViewModelInstanceEnum.enumType` in `rive_native` 0.1.3)
 - **Headless Texture in `loadExternalFile()`** — GPU texture mode (`RiveRenderMode.texture`) is now correctly initialized when loading external Rive files via `loadExternalFile()`
 - **TickerMode Override for Texture Mode** — Headless texture rendering now wraps the render surface in `TickerMode(enabled: true)` to prevent the internal ticker from being muted when the parent widget disables TickerMode (e.g. stealth/hidden mode)
 - **OverflowBox Constraint Fix** — Texture mode render surface now uses `OverflowBox` to override parent layout constraints with exact texture dimensions (`textureWidth × textureHeight`), preventing `performLayout()` from resizing the MTLTexture when parent constraints shrink
