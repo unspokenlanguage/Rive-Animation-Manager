@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.21]
+
+### Changed
+
+- **Rive runtime upgraded to latest stable releases:**
+  - `rive` upgraded from `^0.14.2` to `^0.14.6`
+  - `rive_native` upgraded from `^0.1.3` to `^0.1.6`
+  - Includes all C++ runtime and renderer improvements from `rive_native` 0.1.4 → 0.1.6
+
+### Added
+
+- **`RivePanel` pointer-event fix** (inherited from `rive` 0.14.4) — `RivePanel` no longer absorbs all pointer events; hit testing now correctly respects each `RiveWidget`'s `hitTestBehavior`. Affects users composing `RiveManager` inside a `RivePanel`.
+
+---
+
 ## [1.0.20]
 
 ### Changed

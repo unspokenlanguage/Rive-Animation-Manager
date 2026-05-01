@@ -3,7 +3,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart' show Alignment;
 import 'package:rive/rive.dart';
-import 'package:rive_native/rive_native.dart';
+
 
 /// A [RenderTexturePainter] that drives Rive animation rendering into a
 /// GPU texture without requiring visible widget output.

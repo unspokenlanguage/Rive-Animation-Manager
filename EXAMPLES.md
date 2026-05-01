@@ -1,4 +1,4 @@
-# Rive Animation Manager - Example Usage (v1.0.17)
+# Rive Animation Manager - Example Usage (v1.0.21)
 
 This file demonstrates complete usage patterns for the Rive Animation Manager package.
 
@@ -27,6 +27,7 @@ This file demonstrates complete usage patterns for the Rive Animation Manager pa
 19. [Dynamic Font Replacement](#example-19-dynamic-font-replacement-v1017)
 20. [Thumbnail / Snapshot Capture](#example-20-thumbnail--snapshot-capture-v1017)
 21. [Headless RenderTexture Mode](#example-21-headless-rendertexture-mode-v1017)
+22. [Atomic Artboard + ViewModel Binding](#example-22-atomic-artboard--viewmodel-binding-v1021)
 
 ---
 
@@ -2281,6 +2282,224 @@ if (pointer != null) {
 |---|---|---|---|
 | `RiveRenderMode.widget` | Visible `RiveWidget` | ❌ | Normal UI display |
 | `RiveRenderMode.texture` | Hidden 1×1 `SizedBox` | ✅ | Broadcast, compositor, GPU pipeline |
+
+---
+
+These examples cover all major features of the Rive Animation Manager package. Adapt them to your specific use cases!
+
+---
+
+## Example 22: Atomic Artboard + ViewModel Binding (v1.0.21+)
+
+### Purpose
+
+Bind a `ViewModelInstance` to a `BindableArtboard` **atomically at the C++ core level** during artboard creation, instead of creating the artboard and then setting the ViewModel in two separate steps.
+
+This is useful when you:
+- Pre-configure a `ViewModelInstance` with property values **before** displaying the artboard
+- Swap artboards at runtime (via the `artboard` data binding property type) and want a clean, one-step handoff
+- Need to guarantee the ViewModel is wired before the first frame renders
+
+> **Requires:** `rive_native >= 0.1.5` / `rive >= 0.14.5` (included in `rive_animation_manager >= 1.0.21`)
+
+### How it Works (Background)
+
+Previously, creating a bindable artboard and attaching a ViewModel required two steps:
+```dart
+// Old two-step approach
+final bindable = file.artboardToBind('MyArtboard');  // step 1
+viewModelInstanceArtboard.value = bindable;           // step 2 — sets VM separately
+```
+
+With `rive_native` 0.1.5+, you can do it atomically:
+```dart
+// New atomic approach — VM is set at the C++ core level during artboard creation
+final bindable = file.artboardToBind(
+  'MyArtboard',
+  viewModelInstance: myViewModelInstance,  // ← optional new parameter
+);
+viewModelInstanceArtboard.value = bindable;  // artboard already has the VM bound
+```
+
+### Live Example — Swapping Artboards with Pre-Configured ViewModels
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:rive_native/rive_native.dart';
+import 'package:rive_animation_manager/rive_animation_manager.dart';
+
+/// Demonstrates atomically binding a ViewModelInstance to a BindableArtboard
+/// and then assigning that artboard to an 'artboard' ViewModel property.
+class AtomicArtboardBindingScreen extends StatefulWidget {
+  @override
+  State<AtomicArtboardBindingScreen> createState() =>
+      _AtomicArtboardBindingScreenState();
+}
+
+class _AtomicArtboardBindingScreenState
+    extends State<AtomicArtboardBindingScreen> {
+  final _controller = RiveAnimationController.instance;
+
+  List<Map<String, dynamic>> _properties = [];
+  String _status = 'Waiting for animation to load...';
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Atomic Artboard Binding (v1.0.21+)')),
+      body: Column(
+        children: [
+          Expanded(
+            child: RiveManager(
+              animationId: 'atomicArtboard',
+              riveFilePath: 'assets/animations/multi_artboard.riv',
+              animationType: RiveAnimationType.stateMachine,
+
+              onInit: (artboard) {
+                setState(() => _status = 'Ready: ${artboard.name}');
+              },
+
+              onViewModelPropertiesDiscovered: (props) {
+                setState(() => _properties = props);
+              },
+            ),
+          ),
+
+          // Status
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            color: Colors.blue[50],
+            child: Text(_status,
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+          ),
+
+          // Controls
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Wrap(
+              spacing: 8,
+              children: [
+                ElevatedButton(
+                  onPressed: _swapToArtboardA,
+                  child: const Text('Swap → Artboard A'),
+                ),
+                ElevatedButton(
+                  onPressed: _swapToArtboardB,
+                  child: const Text('Swap → Artboard B'),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  /// Atomically bind Artboard A with its own pre-configured ViewModelInstance.
+  ///
+  /// - Gets the Rive File from the registered animation state
+  /// - Creates a new ViewModelInstance and sets properties on it
+  /// - Creates the BindableArtboard with the VM already wired at the C++ level
+  /// - Updates the 'displayArtboard' property to swap the rendered artboard
+  Future<void> _swapToArtboardA() async {
+    final state = _controller.getAnimationState('atomicArtboard');
+    if (state?.file == null || state?.viewModelInstance == null) {
+      setState(() => _status = 'Animation not ready yet');
+      return;
+    }
+
+    // 1. Create a fresh ViewModelInstance for Artboard A
+    final vmA = state!.viewModelInstance!;  // reuse or create a dedicated one
+
+    // 2. Pre-configure properties on the VM before binding
+    final titleProp = vmA.string('title');
+    titleProp?.value = 'Artboard A — Pre-Configured';
+
+    final colorProp = vmA.color('bgColor');
+    colorProp?.value = const Color(0xFF4CAF50);  // green for Artboard A
+
+    // 3. Create BindableArtboard atomically — VM is bound at C++ core level
+    //    (requires rive_native >= 0.1.5)
+    final bindableA = state.file!.artboardToBind(
+      'ArtboardA',
+      viewModelInstance: vmA,  // ← atomic binding
+    );
+
+    if (bindableA == null) {
+      setState(() => _status = 'Artboard A not found in file');
+      return;
+    }
+
+    // 4. Find the artboard property and set the new bindable artboard
+    final success = await _controller.updateDataBindingProperty(
+      'atomicArtboard',
+      'displayArtboard',  // the ViewModel property of type 'artboard'
+      bindableA,
+    );
+
+    setState(() => _status = success
+        ? '✅ Swapped to Artboard A (VM pre-configured)'
+        : '❌ Failed to swap artboard');
+  }
+
+  /// Same pattern for Artboard B, with different pre-configured values.
+  Future<void> _swapToArtboardB() async {
+    final state = _controller.getAnimationState('atomicArtboard');
+    if (state?.file == null || state?.viewModelInstance == null) return;
+
+    final vmB = state!.viewModelInstance!;
+
+    final titleProp = vmB.string('title');
+    titleProp?.value = 'Artboard B — Different Config';
+
+    final colorProp = vmB.color('bgColor');
+    colorProp?.value = const Color(0xFF2196F3);  // blue for Artboard B
+
+    final bindableB = state.file!.artboardToBind(
+      'ArtboardB',
+      viewModelInstance: vmB,
+    );
+
+    if (bindableB == null) return;
+
+    await _controller.updateDataBindingProperty(
+      'atomicArtboard',
+      'displayArtboard',
+      bindableB,
+    );
+
+    setState(() => _status = '✅ Swapped to Artboard B (VM pre-configured)');
+  }
+}
+```
+
+### Key Points
+
+| Aspect | Old Two-Step | New Atomic (v1.0.21+) |
+|---|---|---|
+| VM set at | Dart wrapper level | C++ core level (runtime) |
+| Timing | After artboard creation | During artboard creation |
+| First-frame risk | VM may not be applied to first frame | Guaranteed — VM is wired before any frame |
+| Code | 2 separate calls | 1 call with optional param |
+| Migration needed | No — old code still works | Opt-in enhancement |
+
+### Why the `file` Getter Matters
+
+To use `artboardToBind()`, you need access to the Rive `File` object. Expose it from `RiveManagerState`:
+
+```dart
+// In rive_manager.dart (already available via getAnimationState)
+File? get file => _file;
+```
+
+Access it via the controller:
+```dart
+final state = RiveAnimationController.instance.getAnimationState('myAnimation');
+final file = state?.file;  // Rive File for calling artboardToBind()
+```
 
 ---
 

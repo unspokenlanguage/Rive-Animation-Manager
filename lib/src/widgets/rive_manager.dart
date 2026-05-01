@@ -179,7 +179,11 @@ class RiveManagerState extends State<RiveManager> {
   /// Get the font asset reference
   FontAsset? get fontAssetReference => _fontAssetReference;
 
+  /// Get the underlying Rive File (for advanced artboard binding via artboardToBind)
+  File? get file => _file;
+
   // ========== END PUBLIC GETTERS ==========
+
 
   /// Safe setState that defers to post-frame callback.
   /// Prevents !_dirty assertions when Rive runtime listeners fire
@@ -994,6 +998,7 @@ class RiveManagerState extends State<RiveManager> {
     int index = 0;
     try {
       while (true) {
+        // ignore: deprecated_member_use
         final input = _controller?.stateMachine.inputAt(index);
         if (input == null) break;
 
@@ -1006,6 +1011,7 @@ class RiveManagerState extends State<RiveManager> {
       }
 
       if (inputs.isNotEmpty) {
+        // ignore: invalid_use_of_internal_member
         _inputChangedHandler = _controller?.stateMachine.onInputChanged(
           _onInputChanged,
         );
@@ -1030,6 +1036,7 @@ class RiveManagerState extends State<RiveManager> {
   }
 
   void _onInputChanged(int index) {
+    // ignore: deprecated_member_use
     final input = _controller?.stateMachine.inputAt(index);
     if (input == null) return;
 
@@ -1054,6 +1061,7 @@ class RiveManagerState extends State<RiveManager> {
       widget.onInputChange?.call(index, input.name, input.value);
     }
 
+    // ignore: invalid_use_of_internal_member
     if (_controller?.stateMachine.isDone == false) {
       LogManager.addLog(
         'Animation complete for: ${widget.animationId}',
@@ -1806,6 +1814,7 @@ class RiveManagerState extends State<RiveManager> {
     // 🚀 GPU PIPELINE: Don't stop headless texture rendering when ticker is
     // disabled (e.g. stealth mode). The Metal compositor reads this texture
     // directly — it doesn't flow through Flutter's visual pipeline.
+    // ignore: deprecated_member_use
     final tickerEnabled = TickerMode.of(context);
     if (!tickerEnabled) {}
     if (!tickerEnabled && widget.renderMode != RiveRenderMode.texture) {

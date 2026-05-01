@@ -842,6 +842,7 @@ class RiveAnimationController {
     }
 
     try {
+      // ignore: deprecated_member_use
       state!.controller!.artboard.setText(textRunName, value, path: path);
       LogManager.addLog(
         'Updated text "$textRunName" = "$value" on $animationId${path != null ? ' (path: $path)' : ''}',
@@ -871,6 +872,7 @@ class RiveAnimationController {
     }
 
     try {
+      // ignore: deprecated_member_use
       final text = state!.controller!.artboard.getText(textRunName, path: path);
       LogManager.addLog(
         'Retrieved text "$textRunName" = "$text" from $animationId',

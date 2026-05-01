@@ -2,30 +2,19 @@
 
 A comprehensive Flutter package for managing Rive animations with bidirectional data binding, interactive controls, image replacement, font replacement, GPU thumbnail capture, and global state management capabilities.
 
-## What's New in v1.0.19
+## What's New in v1.0.21
 
-**rive_native ^0.1.3 Support** 🚀
-- Updated C++ runtime and Swift Package Manager integration
-- Re-architected GPU texture surface resolution (`onRendererPointer` for `MetalTextureRenderer*`)
-- Improved rendering pipeline stability with TickerMode control
+**rive ^0.14.6 / rive_native ^0.1.6** 🚀
+- **Critical Metal crash fix** — `rive_native` 0.1.6 explicitly `nil`s Metal ivars on `dealloc`, eliminating use-after-free crashes during Flutter engine teardown on iOS/macOS ([#623](https://github.com/rive-app/rive-flutter/issues/623))
+- Directly stabilises `RiveRenderMode.texture` — `onTextureReady`, `onNativeTexturePointer`, and `onRendererPointer` callbacks are now safe across all navigation and app-backgrounding scenarios
 
-**Headless RenderTexture Mode** 🎨
-- Render Rive animations to a GPU texture without a visible widget — ideal for broadcast compositors and zero-copy IOSurface pipelines
-- New `RiveRenderMode.texture` mode with `textureWidth/Height`, `onTextureReady`, and `onNativeTexturePointer` callbacks
+**Atomic Artboard + ViewModel Binding** 🔗
+- `File.artboardToBind()` now accepts an optional `viewModelInstance` parameter (rive_native 0.1.5+)
+- Bind a `ViewModelInstance` to a `BindableArtboard` atomically at the C++ core level — no separate post-creation bind step needed
+- Fully backward-compatible with all existing `artboard` property workflows
 
-**Font Replacement API** ✨
-- Dynamic font swapping at runtime, mirroring the image replacement pattern
-- `updateFontFromBytes()`, `updateFontFromAsset()`, `updateFontFromUrl()` — supports .ttf and .otf
-- FontAsset interception with `enableImageReplacement: true`
-
-**Thumbnail / Snapshot API** 📸
-- GPU-direct frame capture via `RenderTexture.toImage()` — no `RepaintBoundary` needed
-- `captureSnapshot()` returns `ui.Image`, `captureSnapshotAsPng()` returns PNG bytes
-- `captureAnimationThumbnail()` on controller for one-liner thumbnail generation
-
-**Complete DataType Coverage**
-- All 13 Rive DataType variants supported: `string`, `number`, `integer`, `boolean`, `color`, `trigger`, `enumType`, `image`, `font`, `list`, `artboard`, `viewModel`, `symbolListIndex`
-- `DataBind` strategy parameter for ViewModel binding
+**`RivePanel` Hit-Test Fix** 🖱️
+- `RivePanel` no longer absorbs all pointer events; each `RiveWidget`'s `hitTestBehavior` is now correctly respected
 
 > **See the full examples:** Run `dart pub unpack rive_animation_manager` and check the `/example` folder and `EXAMPLES.md` for fully documented usage patterns.
 
