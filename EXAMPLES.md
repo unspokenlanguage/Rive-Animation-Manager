@@ -28,6 +28,8 @@ This file demonstrates complete usage patterns for the Rive Animation Manager pa
 20. [Thumbnail / Snapshot Capture](#example-20-thumbnail--snapshot-capture-v1017)
 21. [Headless RenderTexture Mode](#example-21-headless-rendertexture-mode-v1017)
 22. [Atomic Artboard + ViewModel Binding](#example-22-atomic-artboard--viewmodel-binding-v1021)
+23. [Shared Texture API](#example-23-shared-texture-api-experimental-v1022)
+24. [Audio Event Handling](#example-24-audio-event-handling-v1022)
 
 ---
 
@@ -632,6 +634,9 @@ class _EventHandlingScreenState extends State<EventHandlingScreen> {
               onEventChange: (eventName, event, currentState) {
                 _addEventLog('Event: $eventName (State: $currentState)');
               },
+              onAudioEvent: (audioEvent, currentState) {
+                _addEventLog('Audio Event: ${audioEvent.name}');
+              },
               onInputChange: (index, name, value) {
                 _addEventLog('Input: $name = $value');
               },
@@ -651,6 +656,83 @@ class _EventHandlingScreenState extends State<EventHandlingScreen> {
     );
   }
 }
+```
+
+## Example 23: Shared Texture API (Experimental) (v1.0.22+)
+
+With `rive` 0.14.7+, you can share a single Metal/GPU texture across multiple `RiveWidget` instances.
+
+```dart
+class SharedTextureScreen extends StatefulWidget {
+  @override
+  State<SharedTextureScreen> createState() => _SharedTextureScreenState();
+}
+
+class _SharedTextureScreenState extends State<SharedTextureScreen> {
+  // 1. Create a single SharedRenderTexture instance
+  late final SharedRenderTexture _sharedTexture;
+
+  @override
+  void initState() {
+    super.initState();
+    _sharedTexture = SharedRenderTexture.create();
+  }
+
+  @override
+  void dispose() {
+    _sharedTexture.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 2. Wrap your layout in RiveSurface so painters can coordinate
+    return RiveSurface(
+      sharedTexture: _sharedTexture,
+      child: Scaffold(
+        appBar: AppBar(title: Text('Shared Texture')),
+        body: Stack(
+          children: [
+            // Background Layer
+            RiveManager(
+              animationId: 'bgAnimation',
+              riveFilePath: 'assets/bg.riv',
+              sharedTexture: _sharedTexture,
+              drawOrder: 1, // Draw first
+            ),
+            // Foreground Character Layer
+            Positioned.fill(
+              child: RiveManager(
+                animationId: 'characterAnimation',
+                riveFilePath: 'assets/character.riv',
+                sharedTexture: _sharedTexture,
+                drawOrder: 2, // Draw second, on top of bg
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+## Example 24: Audio Event Handling (v1.0.22+)
+
+Listen for Audio events emitted from your Rive state machine directly.
+
+```dart
+RiveManager(
+  animationId: 'audioAnimation',
+  riveFilePath: 'assets/animations/audio.riv',
+  onAudioEvent: (audioEvent, currentState) {
+    // Custom audio player logic here
+    print('Play audio file: \${audioEvent.name}');
+  },
+  onEventChange: (eventName, event, currentState) {
+    print('General event: \$eventName');
+  },
+)
 ```
 
 ## Example 8: Cache Management
@@ -2228,6 +2310,11 @@ class _HeadlessTextureScreenState extends State<HeadlessTextureScreen> {
 
               // Pass to your broadcast engine:
               // broadcastBus.attachRiveTexture(Pointer.fromAddress(address));
+            },
+            onRendererPointer: (address) {
+              // This is the MetalTextureRenderer* pointer, used to resolve
+              // dynamic triple-buffered textures each frame.
+              print('Renderer pointer: 0x${address.toRadixString(16)}');
             },
             // All existing callbacks still work:
             onViewModelPropertiesDiscovered: (props) {

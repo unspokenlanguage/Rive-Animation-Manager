@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.22]
+
+### Changed
+- **Rive runtime upgraded to latest stable releases:**
+  - `rive` upgraded to `^0.14.8`
+  - `rive_native` upgraded to `^0.1.8`
+  - Safely migrated `onTextureChanged` to the new `addTextureChangedListener`/`removeTextureChangedListener` APIs introduced in `rive_native` 0.1.8.
+
+### Added
+- **Audio Event Support**: `RiveManager` now supports the new `AudioRuntimeEvent` from Rive 0.14.7+. Added an optional `onAudioEvent` callback for explicit audio event handling.
+- **Shared Texture API (Experimental)**: Added `useSharedTexture` and `sharedTexture` parameters to `RiveManager` to support Rive's new Shared Texture capabilities across siblings or routes.
+- **Draw Order**: Added `drawOrder` parameter to `RiveManager` (defaults to 1) for controlling paint order when drawing to a shared texture.
+
+### Fixed
+- **Null Safety Guard**: Added a null check guard in `RiveManager.build` to prevent exceptions if `_controller` initialization fails silently due to a missing asset.
+
 ## [1.0.21]
 
 ### Changed

@@ -63,6 +63,27 @@ class RiveManager extends StatefulWidget {
   /// [RiveRenderMode.texture]. Defaults to 1080.
   final int textureHeight;
 
+  /// Whether to use a shared texture (via an ancestor `RivePanel`) for rendering.
+  /// When `true`, draws into the nearest ancestor `RivePanel` via inherited
+  /// widget lookup. Ignored when [sharedTexture] is provided.
+  ///
+  /// **EXPERIMENTAL**: This API may change or be removed in a future release.
+  final bool useSharedTexture;
+
+  /// An explicit `SharedRenderTexture` to draw into, bypassing the
+  /// ancestor-based `RivePanel` lookup. Use with `SharedRenderTexture.create()`
+  /// and `RiveSurface` to share a texture across siblings, separate subtrees,
+  /// or across routes. Takes precedence over [useSharedTexture] when both are set.
+  ///
+  /// **EXPERIMENTAL**: This API may change or be removed in a future release.
+  // ignore: experimental_member_use
+  final SharedRenderTexture? sharedTexture;
+
+  /// The draw order when rendering into a shared texture (via [useSharedTexture]
+  /// or [sharedTexture]). Lower values are drawn first. Only used when drawing
+  /// to a shared texture with `Factory.rive`. Defaults to 1.
+  final int drawOrder;
+
   /// Called when the GPU [RenderTexture] is created and ready for use.
   /// Use this to access the texture for compositing or broadcast pipelines.
   final void Function(rive_native.RenderTexture texture)? onTextureReady;
@@ -87,6 +108,11 @@ class RiveManager extends StatefulWidget {
       onViewModelPropertiesDiscovered;
   final void Function(String eventName, Event event, String currentState)?
       onEventChange;
+
+  /// Called when an [AudioRuntimeEvent] fires from the state machine.
+  /// If not provided, audio events fall back to [onEventChange].
+  final void Function(AudioRuntimeEvent event, String currentState)?
+      onAudioEvent;
   final void Function(String propertyName, String propertyType, dynamic value)?
       onDataBindingChange;
 
@@ -108,6 +134,9 @@ class RiveManager extends StatefulWidget {
     this.enableImageReplacement = false,
     this.imageAssetReference,
     this.renderMode = RiveRenderMode.widget,
+    this.useSharedTexture = false,
+    this.sharedTexture,
+    this.drawOrder = 1,
     this.textureWidth = 1920,
     this.textureHeight = 1080,
     this.onTextureReady,
@@ -120,6 +149,7 @@ class RiveManager extends StatefulWidget {
     this.onViewModelPropertiesDiscovered,
     this.onDataBindingChange,
     this.onEventChange,
+    this.onAudioEvent,
     this.onAnimationComplete,
   }) : super(key: key);
 
@@ -259,7 +289,12 @@ class RiveManagerState extends State<RiveManager> {
     // Clean up headless texture resources
     _headlessPainter?.dispose();
     _headlessPainter = null;
-    _renderTexture?.onTextureChanged = null;
+    try {
+      _renderTexture?.removeTextureChangedListener(_onTextureChanged);
+    } catch (_) {
+      // ignore: deprecated_member_use
+      _renderTexture?.onTextureChanged = null;
+    }
     _renderTexture?.dispose();
     _renderTexture = null;
 
@@ -1072,11 +1107,24 @@ class RiveManagerState extends State<RiveManager> {
   }
 
   void _onRiveEvent(Event event) {
-    LogManager.addLog(
-      'Event fired for ${widget.animationId}: ${event.name} (state: $_currentStateName)',
-      isExpected: true,
-    );
-    widget.onEventChange?.call(event.name, event, _currentStateName);
+    if (event is AudioRuntimeEvent) {
+      LogManager.addLog(
+        'Audio Event fired for ${widget.animationId}: ${event.name} (state: $_currentStateName)',
+        isExpected: true,
+      );
+      if (widget.onAudioEvent != null) {
+        widget.onAudioEvent!(event, _currentStateName);
+      } else {
+        // Fallback to generic event change if onAudioEvent is not provided
+        widget.onEventChange?.call(event.name, event, _currentStateName);
+      }
+    } else {
+      LogManager.addLog(
+        'Event fired for ${widget.animationId}: ${event.name} (state: $_currentStateName)',
+        isExpected: true,
+      );
+      widget.onEventChange?.call(event.name, event, _currentStateName);
+    }
   }
 
   Future<void> _discoverDataBindingProperties() async {
@@ -1761,48 +1809,55 @@ class RiveManagerState extends State<RiveManager> {
       // Wire re-registration: when rive_native's performLayout() recreates
       // the MTLTexture (e.g. due to devicePixelRatio scaling), the bus
       // must be updated with the new pointer.
-      _renderTexture!.onTextureChanged = () {
-        if (!mounted) return;
-        final tex = _renderTexture;
-        if (tex == null || tex.isDisposed) return;
-        try {
-          final ptr = tex.nativeTexture;
-          if (ptr != null) {
-            final address = ptr.address;
-            widget.onNativeTexturePointer?.call(address);
+      try {
+        _renderTexture!.addTextureChangedListener(_onTextureChanged);
+      } catch (_) {
+        // ignore: deprecated_member_use
+        _renderTexture!.onTextureChanged = _onTextureChanged;
+      }
+    } catch (e) {
+      LogManager.addLog(
+        'Failed to setup headless texture for ${widget.animationId}: $e',
+        isExpected: false,
+      );
+    }
+  }
+
+  void _onTextureChanged() {
+    if (!mounted) return;
+    final tex = _renderTexture;
+    if (tex == null || tex.isDisposed) return;
+    try {
+      final ptr = tex.nativeTexture;
+      if (ptr != null) {
+        final address = ptr.address;
+        widget.onNativeTexturePointer?.call(address);
+        LogManager.addLog(
+          'Texture re-created, new pointer: 0x${address.toRadixString(16)} '
+          'for ${widget.animationId}',
+          isExpected: true,
+        );
+      }
+      // Also re-register the renderer pointer for dynamic texture resolution
+      try {
+        final rendererPtr = (tex as dynamic).nativeRendererPointer;
+        if (rendererPtr != null) {
+          final rendererAddress = rendererPtr.address as int;
+          if (rendererAddress != 0) {
+            widget.onRendererPointer?.call(rendererAddress);
             LogManager.addLog(
-              'Texture re-created, new pointer: 0x${address.toRadixString(16)} '
+              'Renderer re-registered: 0x${rendererAddress.toRadixString(16)} '
               'for ${widget.animationId}',
               isExpected: true,
             );
           }
-          // Also re-register the renderer pointer for dynamic texture resolution
-          try {
-            final rendererPtr = (tex as dynamic).nativeRendererPointer;
-            if (rendererPtr != null) {
-              final rendererAddress = rendererPtr.address as int;
-              if (rendererAddress != 0) {
-                widget.onRendererPointer?.call(rendererAddress);
-                LogManager.addLog(
-                  'Renderer re-registered: 0x${rendererAddress.toRadixString(16)} '
-                  'for ${widget.animationId}',
-                  isExpected: true,
-                );
-              }
-            }
-          } catch (_) {
-            // nativeRendererPointer not available in this rive_native version
-          }
-        } catch (e) {
-          LogManager.addLog(
-            'onTextureChanged error for ${widget.animationId}: $e',
-            isExpected: false,
-          );
         }
-      };
+      } catch (_) {
+        // nativeRendererPointer not available in this rive_native version
+      }
     } catch (e) {
       LogManager.addLog(
-        'Failed to setup headless texture for ${widget.animationId}: $e',
+        'onTextureChanged error for ${widget.animationId}: $e',
         isExpected: false,
       );
     }
@@ -1866,14 +1921,17 @@ class RiveManagerState extends State<RiveManager> {
           } else if (state is RiveFailed) {
             return ErrorWidget(state.error);
           } else if (state is RiveLoaded) {
-            return RiveWidget(
-              controller: state.controller,
-              fit: widget.fit,
-              alignment: widget.alignment,
-              hitTestBehavior: widget.hitTestBehavior,
-              cursor: widget.cursor,
-              layoutScaleFactor: widget.layoutScaleFactor,
-            );
+              return RiveWidget(
+                controller: state.controller,
+                fit: widget.fit,
+                alignment: widget.alignment,
+                hitTestBehavior: widget.hitTestBehavior,
+                cursor: widget.cursor,
+                layoutScaleFactor: widget.layoutScaleFactor,
+                useSharedTexture: widget.useSharedTexture,
+                sharedTexture: widget.sharedTexture,
+                drawOrder: widget.drawOrder,
+              );
           } else {
             return const SizedBox.shrink();
           }
@@ -1918,6 +1976,15 @@ class RiveManagerState extends State<RiveManager> {
       );
     }
 
+    if (_controller == null) {
+      LogManager.addLog(
+        'Cannot render RiveWidget for ${widget.animationId}: _controller is null. '
+        'Check earlier logs for initialization failures.',
+        isExpected: false,
+      );
+      return const SizedBox.shrink();
+    }
+
     return RiveWidget(
       controller: _controller!,
       fit: widget.fit,
@@ -1925,6 +1992,9 @@ class RiveManagerState extends State<RiveManager> {
       hitTestBehavior: widget.hitTestBehavior,
       cursor: widget.cursor,
       layoutScaleFactor: widget.layoutScaleFactor,
+      useSharedTexture: widget.useSharedTexture,
+      sharedTexture: widget.sharedTexture,
+      drawOrder: widget.drawOrder,
     );
   }
 }

@@ -1,11 +1,11 @@
-# Rive Animation Manager - Quick Reference (v1.0.11+)
+# Rive Animation Manager - Quick Reference (v1.0.22+)
 
 ## Installation
 
 Add to `pubspec.yaml`:
 ```yaml
 dependencies:
-  rive_animation_manager: ^1.0.11
+  rive_animation_manager: ^1.0.22
 ```
 
 ## Basic Import
@@ -255,6 +255,38 @@ onEventChange: (String eventName, Event event, String currentState) {
 }
 ```
 
+### onAudioEvent (v1.0.22+)
+Called when Rive AudioRuntimeEvent fires.
+```dart
+onAudioEvent: (AudioRuntimeEvent event, String currentState) {
+  print('Audio triggered: ${event.name}');
+}
+```
+
+### onTextureReady (v1.0.17+)
+Called when GPU texture is initialized (texture mode).
+```dart
+onTextureReady: (RenderTexture texture) {
+  print('Texture ready: ${texture.textureId}');
+}
+```
+
+### onNativeTexturePointer (v1.0.17+)
+Called with the underlying native GPU pointer address.
+```dart
+onNativeTexturePointer: (int address) {
+  print('Native pointer: 0x${address.toRadixString(16)}');
+}
+```
+
+### onRendererPointer (v1.0.19+)
+Called with the MetalTextureRenderer* pointer address.
+```dart
+onRendererPointer: (int address) {
+  print('Renderer pointer: 0x${address.toRadixString(16)}');
+}
+```
+
 ## Advanced Operations
 
 ### Update Nested Properties (v1.0.8+)
@@ -339,6 +371,8 @@ Supported data binding property types:
 
 | Version | Release | Key Features |
 |---------|---------|-----------------|
+| 1.0.22  | 2026-06-11 | Audio Events & Shared Texture API ✨ |
+| 1.0.17  | 2026-05-15 | Headless Texture Mode & Font API |
 | 1.0.11  | 2025-11-15 | Flexible color support ✨ |
 | 1.0.10  | 2025-11-12 | FileLoader full support |
 | 1.0.9   | 2025-11-11 | Advanced image handling |

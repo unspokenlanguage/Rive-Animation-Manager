@@ -2,6 +2,13 @@
 
 A comprehensive Flutter package for managing Rive animations with bidirectional data binding, interactive controls, image replacement, font replacement, GPU thumbnail capture, and global state management capabilities.
 
+## What's New in v1.0.22
+
+**rive ^0.14.8 / rive_native ^0.1.8** 🚀
+- **Audio Event Support** 🎵: RiveManager now fully supports the new `AudioRuntimeEvent` via the `onAudioEvent` callback. State machine event listeners securely handle audio events alongside General and OpenUrl events.
+- **Shared Texture API (Experimental)** 🎨: Support for Rive's `SharedRenderTexture` across `RiveManager` instances. You can now use `useSharedTexture`, `sharedTexture`, and `drawOrder` parameters to share a single native texture across siblings, separate subtrees, or across routes!
+- **Null Safety Resilience** 🛡️: Fortified `RiveManager` internal controller initialisation against missing assets, preventing widget library null operator exceptions.
+
 ## What's New in v1.0.21
 
 **rive ^0.14.6 / rive_native ^0.1.6** 🚀
@@ -101,7 +108,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  rive_animation_manager: ^1.0.17
+  rive_animation_manager: ^1.0.22
 ```
 
 Then run:
@@ -417,7 +424,7 @@ RiveManager(
 
 ### Event Handling
 
-Listen to Rive events:
+Listen to Rive events (including the new Audio events):
 
 ```dart
 RiveManager(
@@ -426,10 +433,45 @@ RiveManager(
   onEventChange: (eventName, event, currentState) {
     print('Event: $eventName in state: $currentState');
   },
+  onAudioEvent: (audioEvent, currentState) {
+    print('Audio event triggered: ${audioEvent.name}');
+  },
 )
 ```
 
 ## Advanced Features
+
+### Shared Texture API (Experimental)
+
+Use Rive's new `SharedRenderTexture` to share a single GPU texture across multiple `RiveManager` widgets, even if they are in separate subtrees or routes:
+
+```dart
+// 1. Create a shared texture
+final sharedTexture = SharedRenderTexture.create();
+
+// 2. Wrap your layout in a RiveSurface
+RiveSurface(
+  sharedTexture: sharedTexture,
+  child: Stack(
+    children: [
+      // Base layer
+      RiveManager(
+        animationId: 'bg',
+        riveFilePath: 'bg.riv',
+        sharedTexture: sharedTexture,
+        drawOrder: 1, // Draw first
+      ),
+      // Overlay layer
+      RiveManager(
+        animationId: 'overlay',
+        riveFilePath: 'overlay.riv',
+        sharedTexture: sharedTexture,
+        drawOrder: 2, // Draw second
+      ),
+    ],
+  ),
+);
+```
 
 ### Nested Property Updates
 
@@ -540,6 +582,8 @@ Flutter widget for displaying Rive animations.
 - `onDataBindingChange` - Called when data binding property changes
 - `onTextureReady` - Called when GPU texture is ready (texture mode)
 - `onNativeTexturePointer` - Called with native texture pointer address (texture mode)
+- `onRendererPointer` - Called with MetalTextureRenderer pointer address (texture mode)
+- `onAudioEvent` - Called when an audio event is emitted
 
 ## Best Practices
 
@@ -610,7 +654,12 @@ This package is licensed under the MIT License. See LICENSE file for details.
 
 ## Changelog
 
-### v1.0.17 (Current)
+### v1.0.22 (Current)
+- Upgraded to `rive ^0.14.8` and `rive_native ^0.1.8`
+- Added Shared Texture API (Experimental) and `onAudioEvent` support
+- Refactored texture listener registration
+
+### v1.0.17
 - **Headless RenderTexture Mode** for zero-copy GPU pipeline integration
 - **Font Replacement API** — `updateFontFromBytes/Asset/Url` mirroring image replacement
 - **Thumbnail / Snapshot API** — GPU-direct frame capture via `RenderTexture.toImage()`
