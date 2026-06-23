@@ -17,11 +17,21 @@ import 'package:rive/rive.dart';
 /// - Renders the artboard into the GPU texture via Rive's C++ renderer
 /// - Keeps the ticker alive so animation continues off-screen
 base class HeadlessRivePainter extends RenderTexturePainter {
+  /// The controller that manages the Rive artboard and state machine.
   final RiveWidgetController controller;
+  
+  /// How the Rive animation should be inscribed into the texture space.
   final Fit fit;
+  
+  /// How to align the Rive animation within the texture bounds.
   final Alignment alignment;
+  
+  /// The scale factor to apply to the layout, defaults to 1.0.
   final double layoutScaleFactor;
 
+  /// Creates a new [HeadlessRivePainter].
+  ///
+  /// The [controller] is required to drive the animation.
   HeadlessRivePainter({
     required this.controller,
     this.fit = Fit.contain,
@@ -29,6 +39,8 @@ base class HeadlessRivePainter extends RenderTexturePainter {
     this.layoutScaleFactor = 1.0,
   });
 
+  /// The background color to clear the texture with before each frame.
+  /// Defaults to fully transparent to allow composition.
   @override
   Color get background => const Color(0x00000000); // fully transparent
 

@@ -1,6 +1,6 @@
 name: rive_animation_manager
 description: A comprehensive Flutter package for managing Rive animations with data binding, image replacement, and global state management capabilities.
-version: 1.0.22
+version: 1.0.23
 homepage: https://github.com/unspokenlanguage/Rive-Animation-Manager
 repository: https://github.com/unspokenlanguage/Rive-Animation-Manager
 issue_tracker: https://github.com/unspokenlanguage/Rive-Animation-Manager/issues
@@ -12,8 +12,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  rive_native: ^0.1.8
-  rive: ^0.14.8
+  rive_native: ^0.1.9
+  rive: ^0.14.9
   http: ^1.1.0
   meta: ^1.16.0
 

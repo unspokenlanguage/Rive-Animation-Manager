@@ -1,11 +1,11 @@
-# Rive Animation Manager - Quick Reference (v1.0.22+)
+# Rive Animation Manager - Quick Reference (v1.0.23+)
 
 ## Installation
 
 Add to `pubspec.yaml`:
 ```yaml
 dependencies:
-  rive_animation_manager: ^1.0.22
+  rive_animation_manager: ^1.0.23
 ```
 
 ## Basic Import
@@ -371,6 +371,7 @@ Supported data binding property types:
 
 | Version | Release | Key Features |
 |---------|---------|-----------------|
+| 1.0.23  | 2026-06-23 | Dependency Bump & Stabilized Shared Textures |
 | 1.0.22  | 2026-06-11 | Audio Events & Shared Texture API ✨ |
 | 1.0.17  | 2026-05-15 | Headless Texture Mode & Font API |
 | 1.0.11  | 2025-11-15 | Flexible color support ✨ |

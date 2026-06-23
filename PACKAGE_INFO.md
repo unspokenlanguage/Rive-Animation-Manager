@@ -64,8 +64,8 @@ rive_animation_manager/
 ### Dependencies
 - ✅ Defined in pubspec.yaml:
   - flutter: sdk
-  - rive: ^0.14.8
-  - rive_native: ^0.1.8
+  - rive: ^0.14.9
+  - rive_native: ^0.1.9
   - http: ^1.1.0
 - ✅ Proper version constraints
 - ✅ Development dependencies included
@@ -73,7 +73,7 @@ rive_animation_manager/
 ### Configuration
 - ✅ pubspec.yaml with proper metadata
 - ✅ Package name: rive_animation_manager
-- ✅ Version: 1.0.22
+- ✅ Version: 1.0.23
 - ✅ Description: Comprehensive Rive animation management for Flutter
 - ✅ Homepage, repository, issue_tracker links
 - ✅ Topics for discoverability

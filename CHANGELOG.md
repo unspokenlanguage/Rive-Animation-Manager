@@ -5,13 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.23]
+
+### Changed
+- **Rive runtime upgraded to latest stable releases:**
+  - `rive` upgraded to `^0.14.9`
+  - `rive_native` upgraded to `^0.1.9`
+- **Shared Texture API Stabilized**: Removed the `(Experimental)` tag from `useSharedTexture` and `sharedTexture` following Rive's official stabilization.
+
 ## [1.0.22]
 
 ### Changed
 - **Rive runtime upgraded to latest stable releases:**
   - `rive` upgraded to `^0.14.8`
   - `rive_native` upgraded to `^0.1.8`
-  - Safely migrated `onTextureChanged` to the new `addTextureChangedListener`/`removeTextureChangedListener` APIs introduced in `rive_native` 0.1.8.
+- **Safely migrated** `onTextureChanged` to the new `addTextureChangedListener`/`removeTextureChangedListener` APIs introduced in rive_native 0.1.8.
 
 ### Added
 - **Audio Event Support**: `RiveManager` now supports the new `AudioRuntimeEvent` from Rive 0.14.7+. Added an optional `onAudioEvent` callback for explicit audio event handling.

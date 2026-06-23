@@ -66,17 +66,12 @@ class RiveManager extends StatefulWidget {
   /// Whether to use a shared texture (via an ancestor `RivePanel`) for rendering.
   /// When `true`, draws into the nearest ancestor `RivePanel` via inherited
   /// widget lookup. Ignored when [sharedTexture] is provided.
-  ///
-  /// **EXPERIMENTAL**: This API may change or be removed in a future release.
   final bool useSharedTexture;
 
   /// An explicit `SharedRenderTexture` to draw into, bypassing the
   /// ancestor-based `RivePanel` lookup. Use with `SharedRenderTexture.create()`
   /// and `RiveSurface` to share a texture across siblings, separate subtrees,
   /// or across routes. Takes precedence over [useSharedTexture] when both are set.
-  ///
-  /// **EXPERIMENTAL**: This API may change or be removed in a future release.
-  // ignore: experimental_member_use
   final SharedRenderTexture? sharedTexture;
 
   /// The draw order when rendering into a shared texture (via [useSharedTexture]

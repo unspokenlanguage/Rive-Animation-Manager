@@ -2,6 +2,11 @@
 
 A comprehensive Flutter package for managing Rive animations with bidirectional data binding, interactive controls, image replacement, font replacement, GPU thumbnail capture, and global state management capabilities.
 
+## What's New in v1.0.23
+
+**rive ^0.14.9 / rive_native ^0.1.9** 🚀
+- **Shared Texture API Stabilized** 🎨: Shared textures are now officially stable! Use `useSharedTexture`, `sharedTexture`, and `drawOrder` parameters to share a single native texture across siblings, separate subtrees, or across routes without experimental warnings.
+
 ## What's New in v1.0.22
 
 **rive ^0.14.8 / rive_native ^0.1.8** 🚀
@@ -108,7 +113,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  rive_animation_manager: ^1.0.22
+  rive_animation_manager: ^1.0.23
 ```
 
 Then run:
@@ -654,10 +659,11 @@ This package is licensed under the MIT License. See LICENSE file for details.
 
 ## Changelog
 
-### v1.0.22 (Current)
-- Upgraded to `rive ^0.14.8` and `rive_native ^0.1.8`
-- Added Shared Texture API (Experimental) and `onAudioEvent` support
-- Refactored texture listener registration
+### v1.0.23 (Current)
+- Upgraded to `rive ^0.14.9` and `rive_native ^0.1.9`
+- Stabilized Shared Texture API (Experimental tag removed)
+
+### v1.0.22
 
 ### v1.0.17
 - **Headless RenderTexture Mode** for zero-copy GPU pipeline integration

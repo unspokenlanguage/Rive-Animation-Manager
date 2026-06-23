@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:rive_native/rive_native.dart';
-import 'dart:io' as io;
+import 'dart:io' if (dart.library.html) '../helpers/io_stub.dart' as io;
 import '../helpers/log_manager.dart';
 import '../widgets/rive_manager.dart';
 import 'package:flutter/material.dart';
