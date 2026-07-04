@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.24]
+
+### Added
+- Added `disposeExternalFile` flag to `RiveManager` (defaults to `true`). Callers can now set this to `false` when passing a shared, externally-cached `File` via `externalFile` to prevent it from being disposed when the widget is unmounted.
+
 ## [1.0.23]
 
 ### Changed

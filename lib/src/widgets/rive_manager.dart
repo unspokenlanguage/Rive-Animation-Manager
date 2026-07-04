@@ -33,6 +33,12 @@ class RiveManager extends StatefulWidget {
   final String animationId;
   final String? riveFilePath;
   final File? externalFile;
+  /// Whether this widget owns [externalFile] and should dispose it when it is
+  /// torn down. Set to `false` when the file is owned by a shared cache and
+  /// reused across mounts — disposing it here would leave the cache holding a
+  /// dangling document. Only affects the [externalFile] path; internally-loaded
+  /// files are always disposed.
+  final bool disposeExternalFile;
   final FileLoader? fileLoader;
   final RiveAnimationType animationType;
 
@@ -118,6 +124,7 @@ class RiveManager extends StatefulWidget {
     required this.animationId,
     this.riveFilePath,
     this.externalFile,
+    this.disposeExternalFile = true,
     this.fileLoader,
     this.animationType = RiveAnimationType.stateMachine,
     this.dataBind,
@@ -295,7 +302,11 @@ class RiveManagerState extends State<RiveManager> {
 
     _viewModelInstance?.dispose();
     _controller?.dispose();
-    _file?.dispose();
+    // Only dispose the file if we own it. Files handed in via [externalFile]
+    // may be owned by a shared cache and reused across mounts.
+    if (widget.externalFile == null || widget.disposeExternalFile) {
+      _file?.dispose();
+    }
 
     super.dispose();
   }
