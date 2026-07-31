@@ -730,6 +730,25 @@ class RiveAnimationController {
     return state;
   }
 
+  /// Lift the initial-sync data-binding suppression window for an animation.
+  ///
+  /// Only meaningful when the [RiveManager] was created with
+  /// `suppressDataBindingCallbacksUntilReady: true`. Call this once you have
+  /// applied your saved values to the artboard (typically at the end of your
+  /// `onInit`) so that [RiveManager.onDataBindingChange] callbacks resume for
+  /// genuine, post-init changes. No-op if the animation isn't registered.
+  void markDataBindingReady(String animationId) {
+    final state = _animations[animationId];
+    if (state == null) {
+      LogManager.addLog(
+        'Cannot mark data-binding ready: Animation $animationId not found',
+        isExpected: false,
+      );
+      return;
+    }
+    state.markDataBindingReady();
+  }
+
   /// Get current state name for an animation
   String? getCurrentStateName(String animationId) {
     final stateName = _animations[animationId]?.currentStateName;

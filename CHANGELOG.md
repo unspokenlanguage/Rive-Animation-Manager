@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.25]
+
+### Changed
+- **Rive runtime upgraded to latest stable releases:**
+  - `rive` upgraded to `^0.14.10`
+  - `rive_native` upgraded to `^0.1.10`
+
+### Added
+- Added `suppressDataBindingCallbacksUntilReady` flag to `RiveManager` (defaults to `false`, fully backward-compatible). When `true`, `onDataBindingChange` callbacks are muted from the moment data-binding is discovered until the consumer calls `RiveManagerState.markDataBindingReady()` (or `RiveAnimationController.instance.markDataBindingReady(animationId)`).
+  - **Why:** on bind, every discovered property fires its listener with the file's default value, and every programmatic `.value =` write echoes back through the same listener. A consumer that persists `onDataBindingChange` values (e.g. per-item data-binding overrides) could not distinguish these init/echo callbacks from a genuine user edit, so defaults would overwrite saved overrides. Consumer-side time-based guards are unreliable because decoding a large `.riv` freezes the UI isolate, so a wall-clock timer fires at the wrong moment. This flag moves the guard into the library and makes it deterministic — callbacks stay muted until the consumer explicitly declares readiness (typically at the end of its `onInit` handler, after applying its own saved values).
+- Added `RiveManagerState.markDataBindingReady()` and `RiveAnimationController.markDataBindingReady(String animationId)` to lift the suppression window.
+
 ## [1.0.24]
 
 ### Added

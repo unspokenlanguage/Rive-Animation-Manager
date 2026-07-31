@@ -39,6 +39,26 @@ class RiveManager extends StatefulWidget {
   /// dangling document. Only affects the [externalFile] path; internally-loaded
   /// files are always disposed.
   final bool disposeExternalFile;
+
+  /// When `true`, [onDataBindingChange] callbacks are SUPPRESSED from the moment
+  /// data-binding is discovered until the consumer calls
+  /// [RiveManagerState.markDataBindingReady] (typically at the end of [onInit],
+  /// after it has pushed its own saved values into the artboard).
+  ///
+  /// Why this exists: on bind, every discovered property fires its listener with
+  /// the file's DEFAULT value, and every programmatic `.value =` write the
+  /// consumer makes echoes back through the same listener. A consumer that
+  /// persists [onDataBindingChange] values (e.g. a playlist item's data-binding
+  /// overrides) cannot tell those init/echo callbacks apart from a genuine user
+  /// edit, so the defaults overwrite the saved overrides. Time-based guards on
+  /// the consumer side are unreliable because decoding a large `.riv` freezes
+  /// the UI isolate, so a wall-clock timer fires at the wrong moment.
+  ///
+  /// This flag moves that guard into the library and makes it deterministic:
+  /// callbacks stay muted until the consumer explicitly declares readiness.
+  /// Defaults to `false` (fully backward-compatible — callbacks fire as before).
+  final bool suppressDataBindingCallbacksUntilReady;
+
   final FileLoader? fileLoader;
   final RiveAnimationType animationType;
 
@@ -125,6 +145,7 @@ class RiveManager extends StatefulWidget {
     this.riveFilePath,
     this.externalFile,
     this.disposeExternalFile = true,
+    this.suppressDataBindingCallbacksUntilReady = false,
     this.fileLoader,
     this.animationType = RiveAnimationType.stateMachine,
     this.dataBind,
@@ -167,6 +188,46 @@ class RiveManagerState extends State<RiveManager> {
   CallbackHandler? _inputChangedHandler;
   bool _isInitializing = false;
   final Map<String, Map<String, dynamic>> _propertyCache = {};
+
+  /// True while [onDataBindingChange] callbacks are muted (see
+  /// [RiveManager.suppressDataBindingCallbacksUntilReady]). Set when data-binding
+  /// is (re)discovered; cleared by [markDataBindingReady].
+  bool _dataBindingSuppressed = false;
+
+  /// Routes a data-binding change to the consumer, honoring the initial-sync
+  /// suppression window. All property listeners emit through this instead of
+  /// calling [RiveManager.onDataBindingChange] directly, so init-time default
+  /// reports and programmatic-write echoes are dropped until the consumer is
+  /// ready.
+  void _emitDataBindingChange(
+    String propertyName,
+    String propertyType,
+    dynamic value,
+  ) {
+    if (_dataBindingSuppressed) {
+      LogManager.addLog(
+        'Suppressed init data-binding callback for ${widget.animationId}: '
+        '$propertyName ($propertyType)',
+        isExpected: true,
+      );
+      return;
+    }
+    widget.onDataBindingChange?.call(propertyName, propertyType, value);
+  }
+
+  /// Lift the initial-sync suppression window so [onDataBindingChange] callbacks
+  /// flow again. Call this once you have applied your own saved values to the
+  /// artboard (typically at the end of your [onInit] handler). No-op unless
+  /// [RiveManager.suppressDataBindingCallbacksUntilReady] is enabled. Idempotent.
+  void markDataBindingReady() {
+    if (_dataBindingSuppressed) {
+      _dataBindingSuppressed = false;
+      LogManager.addLog(
+        'Data-binding callbacks re-enabled for ${widget.animationId}',
+        isExpected: true,
+      );
+    }
+  }
 
   // === RenderTexture Mode State ===
   rive_native.RenderTexture? _renderTexture;
@@ -1134,6 +1195,14 @@ class RiveManagerState extends State<RiveManager> {
   }
 
   Future<void> _discoverDataBindingProperties() async {
+    // Arm the initial-sync suppression BEFORE any property listener is attached,
+    // so the defaults reported at bind time (and the consumer's own apply
+    // echoes) are muted until markDataBindingReady() is called. Re-armed on
+    // every (re)bind; no-op when the flag is off.
+    if (widget.suppressDataBindingCallbacksUntilReady) {
+      _dataBindingSuppressed = true;
+    }
+
     if (_controller == null) {
       LogManager.addLog(
         'Cannot discover data binding: Controller is null for ${widget.animationId}',
@@ -1257,7 +1326,7 @@ class RiveManagerState extends State<RiveManager> {
         });
 
         stringProp?.addListener((value) {
-          widget.onDataBindingChange?.call(name, 'string', value);
+          _emitDataBindingChange(name, 'string', value);
         });
       } else if (type == DataType.trigger) {
         final triggerProp = vmInstance.trigger(name);
@@ -1271,7 +1340,7 @@ class RiveManagerState extends State<RiveManager> {
         // ✅ Add the boolean parameter (usually true when fired)
         triggerProp?.addListener((bool triggered) {
           if (triggered) {
-            widget.onDataBindingChange?.call(name, 'trigger', true);
+            _emitDataBindingChange(name, 'trigger', true);
           }
         });
 
@@ -1289,7 +1358,7 @@ class RiveManagerState extends State<RiveManager> {
         });
 
         numberProp?.addListener((value) {
-          widget.onDataBindingChange?.call(name, 'number', value);
+          _emitDataBindingChange(name, 'number', value);
         });
       } else if (type == DataType.boolean) {
         final boolProp = vmInstance.boolean(name);
@@ -1301,7 +1370,7 @@ class RiveManagerState extends State<RiveManager> {
         });
 
         boolProp?.addListener((value) {
-          widget.onDataBindingChange?.call(name, 'boolean', value);
+          _emitDataBindingChange(name, 'boolean', value);
         });
       } else if (type == DataType.color) {
         final colorProp = vmInstance.color(name);
@@ -1313,7 +1382,7 @@ class RiveManagerState extends State<RiveManager> {
         });
 
         colorProp?.addListener((value) {
-          widget.onDataBindingChange?.call(name, 'color', value);
+          _emitDataBindingChange(name, 'color', value);
         });
       } else if (type == DataType.image) {
         final imageProp = vmInstance.image(name);
@@ -1334,7 +1403,7 @@ class RiveManagerState extends State<RiveManager> {
         });
 
         enumProp?.addListener((value) {
-          widget.onDataBindingChange?.call(name, 'enumType', value);
+          _emitDataBindingChange(name, 'enumType', value);
         });
       } else if (type == DataType.viewModel) {
         final nestedVM = vmInstance.viewModel(name);
@@ -1366,7 +1435,7 @@ class RiveManagerState extends State<RiveManager> {
         });
 
         numberProp?.addListener((value) {
-          widget.onDataBindingChange?.call(name, 'integer', value.toInt());
+          _emitDataBindingChange(name, 'integer', value.toInt());
         });
       } else if (type == DataType.list) {
         final listProp = vmInstance.list(name);
@@ -1520,7 +1589,7 @@ class RiveManagerState extends State<RiveManager> {
 
               prop.addListener((bool fired) {
                 // We pass 'true' to your callback to notify Flutter the trigger happened
-                widget.onDataBindingChange?.call(fullPath, 'trigger', true);
+                _emitDataBindingChange(fullPath, 'trigger', true);
                 if (mounted) {
                   _safeSetState(() {});
                 }
@@ -1546,7 +1615,7 @@ class RiveManagerState extends State<RiveManager> {
               nestedInfo['property'] = prop;
               nestedInfo['value'] = prop.value;
               prop.addListener((newValue) {
-                widget.onDataBindingChange?.call(fullPath, 'color', newValue);
+                _emitDataBindingChange(fullPath, 'color', newValue);
                 if (mounted) {
                   _safeSetState(() => nestedInfo['value'] = newValue);
                 }
