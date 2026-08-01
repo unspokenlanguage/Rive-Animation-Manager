@@ -2,6 +2,15 @@
 
 A comprehensive Flutter package for managing Rive animations with bidirectional data binding, interactive controls, image replacement, font replacement, GPU thumbnail capture, and global state management capabilities.
 
+## What's New in v1.0.25
+
+**rive ^0.14.10 / rive_native ^0.1.10** 🚀
+- **Data Binding Initialization Muting** 🤫: Added `suppressDataBindingCallbacksUntilReady` flag to `RiveManager`. When true, `onDataBindingChange` callbacks are muted until the consumer explicitly calls `markDataBindingReady()`. This prevents default values from echoing back and overwriting saved overrides during initialization.
+
+## What's New in v1.0.24
+
+- **External File Disposal Control** 📁: Added `disposeExternalFile` flag to `RiveManager` (defaults to `true`). Callers can now set this to `false` when passing a shared, externally-cached `File` via `externalFile` to prevent it from being disposed when the widget is unmounted.
+
 ## What's New in v1.0.23
 
 **rive ^0.14.9 / rive_native ^0.1.9** 🚀
