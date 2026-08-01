@@ -2,42 +2,6 @@
 
 A comprehensive Flutter package for managing Rive animations with bidirectional data binding, interactive controls, image replacement, font replacement, GPU thumbnail capture, and global state management capabilities.
 
-## What's New in v1.0.25
-
-**rive ^0.14.10 / rive_native ^0.1.10** 🚀
-- **Data Binding Initialization Muting** 🤫: Added `suppressDataBindingCallbacksUntilReady` flag to `RiveManager`. When true, `onDataBindingChange` callbacks are muted until the consumer explicitly calls `markDataBindingReady()`. This prevents default values from echoing back and overwriting saved overrides during initialization.
-
-## What's New in v1.0.24
-
-- **External File Disposal Control** 📁: Added `disposeExternalFile` flag to `RiveManager` (defaults to `true`). Callers can now set this to `false` when passing a shared, externally-cached `File` via `externalFile` to prevent it from being disposed when the widget is unmounted.
-
-## What's New in v1.0.23
-
-**rive ^0.14.9 / rive_native ^0.1.9** 🚀
-- **Shared Texture API Stabilized** 🎨: Shared textures are now officially stable! Use `useSharedTexture`, `sharedTexture`, and `drawOrder` parameters to share a single native texture across siblings, separate subtrees, or across routes without experimental warnings.
-
-## What's New in v1.0.22
-
-**rive ^0.14.8 / rive_native ^0.1.8** 🚀
-- **Audio Event Support** 🎵: RiveManager now fully supports the new `AudioRuntimeEvent` via the `onAudioEvent` callback. State machine event listeners securely handle audio events alongside General and OpenUrl events.
-- **Shared Texture API (Experimental)** 🎨: Support for Rive's `SharedRenderTexture` across `RiveManager` instances. You can now use `useSharedTexture`, `sharedTexture`, and `drawOrder` parameters to share a single native texture across siblings, separate subtrees, or across routes!
-- **Null Safety Resilience** 🛡️: Fortified `RiveManager` internal controller initialisation against missing assets, preventing widget library null operator exceptions.
-
-## What's New in v1.0.21
-
-**rive ^0.14.6 / rive_native ^0.1.6** 🚀
-- **Critical Metal crash fix** — `rive_native` 0.1.6 explicitly `nil`s Metal ivars on `dealloc`, eliminating use-after-free crashes during Flutter engine teardown on iOS/macOS ([#623](https://github.com/rive-app/rive-flutter/issues/623))
-- Directly stabilises `RiveRenderMode.texture` — `onTextureReady`, `onNativeTexturePointer`, and `onRendererPointer` callbacks are now safe across all navigation and app-backgrounding scenarios
-
-**Atomic Artboard + ViewModel Binding** 🔗
-- `File.artboardToBind()` now accepts an optional `viewModelInstance` parameter (rive_native 0.1.5+)
-- Bind a `ViewModelInstance` to a `BindableArtboard` atomically at the C++ core level — no separate post-creation bind step needed
-- Fully backward-compatible with all existing `artboard` property workflows
-
-**`RivePanel` Hit-Test Fix** 🖱️
-- `RivePanel` no longer absorbs all pointer events; each `RiveWidget`'s `hitTestBehavior` is now correctly respected
-
-> **See the full examples:** Run `dart pub unpack rive_animation_manager` and check the `/example` folder and `EXAMPLES.md` for fully documented usage patterns.
 
 ## Why This Library Matters
 
