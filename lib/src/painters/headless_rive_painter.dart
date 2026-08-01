@@ -44,6 +44,26 @@ base class HeadlessRivePainter extends RenderTexturePainter {
   @override
   Color get background => const Color(0x00000000); // fully transparent
 
+  /// Indicates whether the texture should be cleared before rendering a new frame.
+  @override
+  bool get clear => super.clear;
+
+  /// Indicates whether this painter requires a clip.
+  @override
+  bool get needsClip => super.needsClip;
+
+  /// Indicates whether this painter will paint to a Flutter [Canvas].
+  @override
+  bool get paintsCanvas => super.paintsCanvas;
+
+  /// Paints directly to the Flutter [Canvas].
+  /// Overridden to provide missing dartdoc.
+  @override
+  void paintCanvas(Canvas canvas, Size size) {
+    super.paintCanvas(canvas, size);
+  }
+
+  /// Renders the Rive artboard into the GPU texture and advances the animation.
   @override
   bool paint(
     RenderTexture texture,
