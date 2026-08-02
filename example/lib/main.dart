@@ -140,17 +140,13 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
     String propertyType,
     dynamic value,
   ) {
-    _addEventLog('🔗 Property Updated: $propertyName = $value');
+    _addEventLog('🔗 Property Updated:  = ');
 
-    // Merge property value update into the pending flush
-    for (int i = 0; i < _properties.length; i++) {
-      if (_properties[i]['name'] == propertyName) {
-        _properties[i] = {
-          ..._properties[i],
-          'value': value,
-        };
-        break;
-      }
+    // Fetch fresh authoritative properties from RiveManager
+    final updatedProps =
+        RiveAnimationController.instance.getProperties('example_animation');
+    if (updatedProps.isNotEmpty) {
+      _pendingProperties = updatedProps;
     }
   }
 
@@ -225,7 +221,7 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
       _addEventLog('🎮 User Changed: $propertyName = $newValue');
 
       // Send the update to the Rive animation via the controller
-      await _controller.updateDataBindingProperty(
+      await _controller.updateNestedProperty(
         'example_animation', // Animation ID (must match RiveManager animationId)
         propertyName,
         newValue,
@@ -286,8 +282,7 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
                       animationId: 'example_animation',
 
                       // Path to your .riv file in assets
-                      riveFilePath:
-                          'assets/animations/NFL_-_Player_Lower_Third.riv',
+                      riveFilePath: 'assets/animations/NFL_-_Player_Lower_Third.riv',
 
                       // Use state machine for interactive animations
                       animationType: RiveAnimationType.stateMachine,
@@ -439,9 +434,19 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
                             itemCount: _properties.length,
                             itemBuilder: (context, index) {
                               final prop = _properties[index];
+                              if (prop['name'] == '__availableViewModels')
+                                return const SizedBox.shrink();
+                              final vms = _properties
+                                      .where((p) =>
+                                          p['name'] == '__availableViewModels')
+                                      .map((p) =>
+                                          (p['value'] as List).cast<String>())
+                                      .firstOrNull ??
+                                  [];
                               return InteractivePropertyCard(
                                 property: prop,
                                 onValueChanged: _onPropertyChanged,
+                                availableViewModels: vms,
                               );
                             },
                           ),
@@ -529,7 +534,7 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
             height: 300,
             child: RiveManager(
               animationId: 'example_animation',
-              riveFilePath: 'assets/animations/listwithViewModal.riv',
+              riveFilePath: 'assets/animations/NFL_-_Player_Lower_Third.riv',
               animationType: RiveAnimationType.stateMachine,
               fit: Fit.contain,
               alignment: Alignment.center,
@@ -630,9 +635,19 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
                     itemCount: _properties.length,
                     itemBuilder: (context, index) {
                       final prop = _properties[index];
+                      if (prop['name'] == '__availableViewModels') {
+                        return const SizedBox.shrink();
+                      }
+                      final vms = _properties
+                              .where(
+                                  (p) => p['name'] == '__availableViewModels')
+                              .map((p) => (p['value'] as List).cast<String>())
+                              .firstOrNull ??
+                          [];
                       return InteractivePropertyCard(
                         property: prop,
                         onValueChanged: _onPropertyChanged,
+                        availableViewModels: vms,
                       );
                     },
                   ),
@@ -733,6 +748,149 @@ class _RiveAnimationExampleState extends State<RiveAnimationExample> {
 /// - color: Color palette buttons
 /// - trigger: Fire button
 /// - enumType: Dropdown selector
+class _StringPropertyField extends StatefulWidget {
+  final String name;
+  final dynamic initialValue;
+  final Function(String, String, dynamic) onValueChanged;
+
+  const _StringPropertyField({
+    required this.name,
+    required this.initialValue,
+    required this.onValueChanged,
+  });
+
+  @override
+  State<_StringPropertyField> createState() => _StringPropertyFieldState();
+}
+
+class _StringPropertyFieldState extends State<_StringPropertyField> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller =
+        TextEditingController(text: widget.initialValue?.toString() ?? '');
+  }
+
+  @override
+  void didUpdateWidget(_StringPropertyField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final newVal = widget.initialValue?.toString() ?? '';
+    if (oldWidget.initialValue != widget.initialValue &&
+        _controller.text != newVal) {
+      _controller.text = newVal;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _controller,
+      decoration: InputDecoration(
+        labelText: 'Enter text',
+        border: const OutlineInputBorder(),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        suffix: TextButton(
+          child: const Text('Update'),
+          onPressed: () =>
+              widget.onValueChanged(widget.name, 'string', _controller.text),
+        ),
+      ),
+      style: const TextStyle(fontSize: 13),
+      onSubmitted: (newValue) =>
+          widget.onValueChanged(widget.name, 'string', newValue),
+    );
+  }
+}
+
+class _AddItemControl extends StatefulWidget {
+  final String listName;
+  final String animationId;
+  final List<String> availableViewModels;
+
+  const _AddItemControl({
+    required this.listName,
+    required this.animationId,
+    this.availableViewModels = const [],
+  });
+
+  @override
+  State<_AddItemControl> createState() => _AddItemControlState();
+}
+
+class _AddItemControlState extends State<_AddItemControl> {
+  String? _selectedVm;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.availableViewModels.isNotEmpty) {
+      _selectedVm = widget.availableViewModels.last;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final vms = widget.availableViewModels;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: vms.isEmpty
+                ? TextField(
+                    decoration: const InputDecoration(
+                      labelText: 'ViewModel Type (e.g. TickerItemVM)',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (v) => _selectedVm = v,
+                  )
+                : DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                      labelText: 'ViewModel Type',
+                      border: OutlineInputBorder(),
+                    ),
+                    initialValue:
+                        _selectedVm != null && vms.contains(_selectedVm)
+                            ? _selectedVm
+                            : (vms.isNotEmpty ? vms.last : null),
+                    items: vms
+                        .map((vm) =>
+                            DropdownMenuItem(value: vm, child: Text(vm)))
+                        .toList(),
+                    onChanged: (v) => setState(() => _selectedVm = v),
+                  ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Add'),
+            onPressed: () {
+              final vmName = _selectedVm?.trim() ?? '';
+              if (vmName.isNotEmpty) {
+                RiveAnimationController.instance.addListItem(
+                  widget.animationId,
+                  widget.listName,
+                  itemViewModel: vmName,
+                  attachListeners: true,
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class InteractivePropertyCard extends StatefulWidget {
   /// The property data containing name, type, and value
   final Map<String, dynamic> property;
@@ -741,10 +899,13 @@ class InteractivePropertyCard extends StatefulWidget {
   final Function(String propertyName, String propertyType, dynamic newValue)
       onValueChanged;
 
+  final List<String> availableViewModels;
+
   const InteractivePropertyCard({
     super.key,
     required this.property,
     required this.onValueChanged,
+    this.availableViewModels = const [],
   });
 
   @override
@@ -753,6 +914,10 @@ class InteractivePropertyCard extends StatefulWidget {
 }
 
 class _InteractivePropertyCardState extends State<InteractivePropertyCard> {
+  String get propertyPath =>
+      widget.property['fullPath'] as String? ??
+      widget.property['name'] as String? ??
+      '';
   @override
   Widget build(BuildContext context) {
     // Extract property metadata
@@ -869,27 +1034,10 @@ class _InteractivePropertyCardState extends State<InteractivePropertyCard> {
   // STRING CONTROL: TextField with send button
   // ====================================
   Widget _buildStringControl(String name, dynamic value) {
-    final controller = TextEditingController(text: value?.toString() ?? '');
-
-    return TextField(
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: 'Enter text',
-        border: const OutlineInputBorder(),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        suffixIcon: IconButton(
-          icon: const Icon(Icons.send, size: 18),
-          onPressed: () {
-            // Send updated value to Rive
-            widget.onValueChanged(name, 'string', controller.text);
-          },
-        ),
-      ),
-      style: const TextStyle(fontSize: 13),
-      onSubmitted: (newValue) {
-        // Also send on Enter key
-        widget.onValueChanged(name, 'string', newValue);
-      },
+    return _StringPropertyField(
+      name: name,
+      initialValue: value,
+      onValueChanged: (n, t, v) => widget.onValueChanged(propertyPath, t, v),
     );
   }
 
@@ -909,7 +1057,7 @@ class _InteractivePropertyCardState extends State<InteractivePropertyCard> {
           label: numValue.toStringAsFixed(1), // Show value as label
           onChanged: (newValue) {
             // Update Rive animation as user drags slider
-            widget.onValueChanged(name, 'number', newValue);
+            widget.onValueChanged(propertyPath, 'number', newValue);
           },
         ),
       ],
@@ -939,7 +1087,7 @@ class _InteractivePropertyCardState extends State<InteractivePropertyCard> {
           value: boolValue,
           onChanged: (newValue) {
             // Toggle boolean property
-            widget.onValueChanged(name, 'boolean', newValue);
+            widget.onValueChanged(propertyPath, 'boolean', newValue);
           },
         ),
       ],
@@ -971,7 +1119,7 @@ class _InteractivePropertyCardState extends State<InteractivePropertyCard> {
     return InkWell(
       onTap: () {
         // Apply selected color to property
-        widget.onValueChanged(propertyName, 'color', color);
+        widget.onValueChanged(propertyPath, 'color', color);
       },
       child: Container(
         width: 40,
@@ -1005,7 +1153,7 @@ class _InteractivePropertyCardState extends State<InteractivePropertyCard> {
       child: ElevatedButton.icon(
         onPressed: () {
           // Fire the trigger (send true value)
-          widget.onValueChanged(name, 'trigger', true);
+          widget.onValueChanged(propertyPath, 'trigger', true);
         },
         icon: const Icon(Icons.play_arrow, size: 16),
         label: Text('Fire: $name', style: const TextStyle(fontSize: 12)),
@@ -1043,7 +1191,7 @@ class _InteractivePropertyCardState extends State<InteractivePropertyCard> {
       }).toList(),
       onChanged: (newValue) {
         if (newValue != null) {
-          widget.onValueChanged(name, 'enumType', newValue);
+          widget.onValueChanged(propertyPath, 'enumType', newValue);
         }
       },
     );
@@ -1112,7 +1260,7 @@ class _InteractivePropertyCardState extends State<InteractivePropertyCard> {
     return _ImagePickerControl(
       propertyName: name,
       onImagePicked: (filePath, bytes) {
-        widget.onValueChanged(name, 'image', bytes);
+        widget.onValueChanged(propertyPath, 'image', bytes);
       },
     );
   }
@@ -1130,7 +1278,7 @@ class _InteractivePropertyCardState extends State<InteractivePropertyCard> {
       divisions: 200,
       label: intValue.toInt().toString(),
       onChanged: (newValue) {
-        widget.onValueChanged(name, 'integer', newValue.toInt());
+        widget.onValueChanged(propertyPath, 'integer', newValue.toInt());
       },
     );
   }
@@ -1139,8 +1287,6 @@ class _InteractivePropertyCardState extends State<InteractivePropertyCard> {
   // LIST INFO: Display list length and items
   // ====================================
   Widget _buildListInfoControl(String name, Map<String, dynamic> property) {
-    final listItems =
-        property['listItems'] as List<Map<String, dynamic>>? ?? [];
     final length = property['value'] ?? 0;
 
     return Column(
@@ -1151,22 +1297,12 @@ class _InteractivePropertyCardState extends State<InteractivePropertyCard> {
           style:
               TextStyle(fontSize: 12, color: material_color.Colors.grey[700]),
         ),
-        if (listItems.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          ...listItems.take(5).map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  '  [${item['index']}] ${item['name']}',
-                  style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
-                ),
-              )),
-          if (listItems.length > 5)
-            Text(
-              '  ... and ${listItems.length - 5} more',
-              style: TextStyle(
-                  fontSize: 11, color: material_color.Colors.grey[500]),
-            ),
-        ],
+        _buildListItems(property),
+        _AddItemControl(
+          listName: name,
+          animationId: 'example_animation',
+          availableViewModels: widget.availableViewModels,
+        ),
       ],
     );
   }
@@ -1174,6 +1310,77 @@ class _InteractivePropertyCardState extends State<InteractivePropertyCard> {
   // ====================================
   // ARTBOARD INFO: Display artboard reference
   // ====================================
+
+  Widget _buildListItems(Map<String, dynamic> property) {
+    final listItems = property['listItems'] as List<dynamic>? ?? [];
+    if (listItems.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      children: listItems.map((item) {
+        final nestedProps = item['properties'] as List<dynamic>? ?? [];
+        return Container(
+          margin: const EdgeInsets.only(top: 8),
+          decoration: BoxDecoration(
+            border: Border.all(color: material_color.Colors.grey[300]!),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: material_color.Colors.grey[100],
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(8)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.drag_handle,
+                        size: 16, color: material_color.Colors.grey),
+                    const SizedBox(width: 8),
+                    Text(
+                      '[] ',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline,
+                          size: 16, color: material_color.Colors.red),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () {
+                        RiveAnimationController.instance.removeListItemAt(
+                            'example_animation',
+                            property['name'],
+                            item['index']);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              if (nestedProps.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    children: nestedProps
+                        .map((p) => InteractivePropertyCard(
+                              property: p as Map<String, dynamic>,
+                              onValueChanged: widget.onValueChanged,
+                              availableViewModels: widget.availableViewModels,
+                            ))
+                        .toList(),
+                  ),
+                ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   Widget _buildArtboardInfoControl(String name) {
     return Text(
       'Artboard reference (set via BindableArtboard)',

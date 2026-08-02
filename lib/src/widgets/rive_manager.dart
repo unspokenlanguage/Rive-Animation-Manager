@@ -229,6 +229,231 @@ class RiveManagerState extends State<RiveManager> {
     }
   }
 
+  // ========== DATA-BINDING LIST MUTATION API ==========
+  //
+  // Structural operations on a data-bound list property (add / insert /
+  // remove / reorder / clear). These operate on the live native
+  // [ViewModelInstanceList] and then rebuild the cached `listItems` snapshot
+  // via [refreshListProperty] so the Flutter side stays in sync.
+  //
+  // Item *construction* (creating a ViewModelInstance and populating its
+  // fields, including flexible color parsing) lives in
+  // [RiveAnimationController] so that conversion logic stays single-sourced;
+  // callers here pass a ready-to-insert instance.
+
+  /// Resolve the live [ViewModelInstanceList] handle for [listName] on the
+  /// bound view-model, or null if the animation has no such list.
+  ViewModelInstanceList? listHandle(String listName) =>
+      _viewModelInstance?.list(listName);
+
+  /// Current item count of [listName]; 0 if the list is missing.
+  int listLength(String listName) =>
+      _viewModelInstance?.list(listName)?.length ?? 0;
+
+  /// Append [item] (or insert at [at]) into the list [listName].
+  ///
+  /// The list retains its own reference, so the caller owns and should dispose
+  /// the passed [item] afterwards. Returns false if the list is missing.
+  bool addListItemInstance(
+    String listName,
+    ViewModelInstance item, {
+    int? at,
+    bool attachListeners = false,
+  }) {
+    final list = _viewModelInstance?.list(listName);
+    if (list == null) {
+      LogManager.addLog(
+        'Cannot add list item: list "$listName" not found on ${widget.animationId}',
+        isExpected: false,
+      );
+      return false;
+    }
+    try {
+      if (at == null || at >= list.length) {
+        list.add(item);
+      } else {
+        list.insert(at < 0 ? 0 : at, item);
+      }
+      
+      if (attachListeners) {
+        final index = at == null || at >= list.length ? list.length - 1 : (at < 0 ? 0 : at);
+        _discoverNestedProperties(
+          list.instanceAt(index),
+          '$listName[$index]',
+          attachListeners: true,
+        );
+      }
+    } catch (e) {
+      LogManager.addLog(
+        'Error adding item to list "$listName" on ${widget.animationId}: $e',
+        isExpected: false,
+      );
+      return false;
+    }
+    refreshListProperty(listName);
+    return true;
+  }
+
+  /// Remove the item at [index] from list [listName]. Bounds-checked.
+  bool removeListItemAt(String listName, int index) {
+    final list = _viewModelInstance?.list(listName);
+    if (list == null) return false;
+    if (index < 0 || index >= list.length) {
+      LogManager.addLog(
+        'Cannot remove list item: index $index out of bounds '
+        '(len ${list.length}) for "$listName" on ${widget.animationId}',
+        isExpected: false,
+      );
+      return false;
+    }
+    try {
+      list.removeAt(index);
+    } catch (e) {
+      LogManager.addLog(
+        'Error removing item $index from list "$listName" on ${widget.animationId}: $e',
+        isExpected: false,
+      );
+      return false;
+    }
+    refreshListProperty(listName);
+    return true;
+  }
+
+  /// Move the item at [from] to [to], preserving the order of everything else.
+  ///
+  /// Implemented purely with adjacent [ViewModelInstanceList.swap] calls, so no
+  /// instances are created or destroyed and there is no lifetime hazard.
+  bool moveListItem(String listName, int from, int to) {
+    final list = _viewModelInstance?.list(listName);
+    if (list == null) return false;
+    final n = list.length;
+    if (from < 0 || from >= n || to < 0 || to >= n) {
+      LogManager.addLog(
+        'Cannot move list item: index out of bounds (from $from, to $to, '
+        'len $n) for "$listName" on ${widget.animationId}',
+        isExpected: false,
+      );
+      return false;
+    }
+    if (from == to) return true;
+    try {
+      final step = from < to ? 1 : -1;
+      for (int i = from; i != to; i += step) {
+        list.swap(i, i + step);
+      }
+    } catch (e) {
+      LogManager.addLog(
+        'Error moving item $from→$to in list "$listName" on ${widget.animationId}: $e',
+        isExpected: false,
+      );
+      return false;
+    }
+    refreshListProperty(listName);
+    return true;
+  }
+
+  /// Swap the items at [a] and [b] in list [listName]. Bounds-checked.
+  bool swapListItems(String listName, int a, int b) {
+    final list = _viewModelInstance?.list(listName);
+    if (list == null) return false;
+    final n = list.length;
+    if (a < 0 || a >= n || b < 0 || b >= n) return false;
+    if (a == b) return true;
+    try {
+      list.swap(a, b);
+    } catch (e) {
+      LogManager.addLog(
+        'Error swapping $a<->$b in list "$listName" on ${widget.animationId}: $e',
+        isExpected: false,
+      );
+      return false;
+    }
+    refreshListProperty(listName);
+    return true;
+  }
+
+  /// Remove every item from list [listName].
+  bool clearList(String listName) {
+    final list = _viewModelInstance?.list(listName);
+    if (list == null) return false;
+    try {
+      for (int i = list.length - 1; i >= 0; i--) {
+        list.removeAt(i);
+      }
+    } catch (e) {
+      LogManager.addLog(
+        'Error clearing list "$listName" on ${widget.animationId}: $e',
+        isExpected: false,
+      );
+      return false;
+    }
+    refreshListProperty(listName);
+    return true;
+  }
+
+  /// Rebuild the cached `listItems` snapshot + length for the `'list'` entry
+  /// named [listName] after a structural mutation, then notify consumers with
+  /// a single `('$listName', 'list', length)` data-binding change.
+  ///
+  /// The snapshot is built with `attachListeners: false`, so repeated
+  /// mutations never accumulate duplicate per-item property listeners (no
+  /// leak, no double callbacks). Consumers read current item values and per-
+  /// item `property` handles directly from the refreshed `listItems`, and can
+  /// still push updates into items via `updateNestedProperty('$listName[i]/…')`.
+  void refreshListProperty(String listName) {
+    final vmInstance = _viewModelInstance;
+    if (vmInstance == null) return;
+
+    final listProp = vmInstance.list(listName);
+    if (listProp == null) return;
+
+    final List<Map<String, dynamic>> listItems = [];
+    for (int i = 0; i < listProp.length; i++) {
+      try {
+        final itemVM = listProp.instanceAt(i);
+        listItems.add({
+          'index': i,
+          'name': itemVM.name,
+          'properties': _discoverNestedProperties(
+            itemVM,
+            '$listName[$i]',
+            attachListeners: false,
+          ),
+        });
+      } catch (e) {
+        LogManager.addLog(
+          'Error snapshotting list item $i for "$listName" on ${widget.animationId}: $e',
+          isExpected: false,
+        );
+      }
+    }
+
+    final existing = _properties.firstWhere(
+      (p) => p['name'] == listName && p['type'] == 'list',
+      orElse: () => <String, dynamic>{},
+    );
+    if (existing.isNotEmpty) {
+      existing['value'] = listProp.length;
+      existing['property'] = listProp;
+      existing['listItems'] = listItems;
+    } else {
+      // The list may not have existed at init (e.g. discovered empty and then
+      // populated at runtime) — register it now so getProperties() sees it.
+      _properties.add({
+        'name': listName,
+        'type': 'list',
+        'value': listProp.length,
+        'property': listProp,
+        'listItems': listItems,
+      });
+    }
+
+    _emitDataBindingChange(listName, 'list', listProp.length);
+    if (mounted) {
+      _safeSetState(() {});
+    }
+  }
+
   // === RenderTexture Mode State ===
   rive_native.RenderTexture? _renderTexture;
   HeadlessRivePainter? _headlessPainter;
@@ -1288,8 +1513,20 @@ class RiveManagerState extends State<RiveManager> {
         }
       }
 
+      if (_file != null && _file!.viewModelCount > 0) {
+        final List<String> vms = [];
+        for (int i = 0; i < _file!.viewModelCount; i++) {
+          final vm = _file!.viewModelByIndex(i);
+          if (vm != null) vms.add(vm.name);
+        }
+        _properties.add({
+          'name': '__availableViewModels',
+          'type': 'meta',
+          'value': vms,
+        });
+      }
+
       if (_properties.isNotEmpty) {
-        // Defer the callback to a post-frame callback so any parent setState
         // it triggers doesn't overlap with the current build phase.
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
@@ -1521,8 +1758,9 @@ class RiveManagerState extends State<RiveManager> {
   /// Discover nested ViewModel properties recursively
   List<Map<String, dynamic>> _discoverNestedProperties(
     ViewModelInstance nestedVM,
-    String parentName,
-  ) {
+    String parentName, {
+    bool attachListeners = true,
+  }) {
     List<Map<String, dynamic>> nestedProps = [];
     int processedCount = 0;
 
@@ -1545,11 +1783,14 @@ class RiveManagerState extends State<RiveManager> {
             if (prop != null) {
               nestedInfo['property'] = prop;
               nestedInfo['value'] = prop.value;
-              prop.addListener((newValue) {
-                if (mounted) {
-                  _safeSetState(() => nestedInfo['value'] = newValue);
-                }
-              });
+              if (attachListeners) {
+                prop.addListener((newValue) {
+                  _emitDataBindingChange(fullPath, 'number', newValue);
+                  if (mounted) {
+                    _safeSetState(() => nestedInfo['value'] = newValue);
+                  }
+                });
+              }
               processedCount++;
             }
             break;
@@ -1559,11 +1800,14 @@ class RiveManagerState extends State<RiveManager> {
             if (prop != null) {
               nestedInfo['property'] = prop;
               nestedInfo['value'] = prop.value;
-              prop.addListener((newValue) {
-                if (mounted) {
-                  _safeSetState(() => nestedInfo['value'] = newValue);
-                }
-              });
+              if (attachListeners) {
+                prop.addListener((newValue) {
+                  _emitDataBindingChange(fullPath, 'boolean', newValue);
+                  if (mounted) {
+                    _safeSetState(() => nestedInfo['value'] = newValue);
+                  }
+                });
+              }
               processedCount++;
             }
             break;
@@ -1573,11 +1817,14 @@ class RiveManagerState extends State<RiveManager> {
             if (prop != null) {
               nestedInfo['property'] = prop;
               nestedInfo['value'] = prop.value;
-              prop.addListener((newValue) {
-                if (mounted) {
-                  _safeSetState(() => nestedInfo['value'] = newValue);
-                }
-              });
+              if (attachListeners) {
+                prop.addListener((newValue) {
+                  _emitDataBindingChange(fullPath, 'string', newValue);
+                  if (mounted) {
+                    _safeSetState(() => nestedInfo['value'] = newValue);
+                  }
+                });
+              }
               processedCount++;
             }
             break;
@@ -1587,13 +1834,15 @@ class RiveManagerState extends State<RiveManager> {
               nestedInfo['property'] = prop;
               nestedInfo['value'] = null;
 
-              prop.addListener((bool fired) {
-                // We pass 'true' to your callback to notify Flutter the trigger happened
-                _emitDataBindingChange(fullPath, 'trigger', true);
-                if (mounted) {
-                  _safeSetState(() {});
-                }
-              });
+              if (attachListeners) {
+                prop.addListener((bool fired) {
+                  // We pass 'true' to your callback to notify Flutter the trigger happened
+                  _emitDataBindingChange(fullPath, 'trigger', true);
+                  if (mounted) {
+                    _safeSetState(() {});
+                  }
+                });
+              }
               processedCount++;
             }
             break;
@@ -1604,6 +1853,7 @@ class RiveManagerState extends State<RiveManager> {
               nestedInfo['nestedProperties'] = _discoverNestedProperties(
                 deepNestedVM,
                 fullPath,
+                attachListeners: attachListeners,
               );
               processedCount++;
             }
@@ -1614,12 +1864,14 @@ class RiveManagerState extends State<RiveManager> {
             if (prop != null) {
               nestedInfo['property'] = prop;
               nestedInfo['value'] = prop.value;
-              prop.addListener((newValue) {
-                _emitDataBindingChange(fullPath, 'color', newValue);
-                if (mounted) {
-                  _safeSetState(() => nestedInfo['value'] = newValue);
-                }
-              });
+              if (attachListeners) {
+                prop.addListener((newValue) {
+                  _emitDataBindingChange(fullPath, 'color', newValue);
+                  if (mounted) {
+                    _safeSetState(() => nestedInfo['value'] = newValue);
+                  }
+                });
+              }
               processedCount++;
             }
             break;
@@ -1639,13 +1891,15 @@ class RiveManagerState extends State<RiveManager> {
               nestedInfo['property'] = prop;
               nestedInfo['value'] = prop.value;
               nestedInfo['enumTypeName'] = prop.enumType;
-              prop.addListener((newValue) {
-                widget.onDataBindingChange
-                    ?.call(fullPath, 'enumType', newValue);
-                if (mounted) {
-                  _safeSetState(() => nestedInfo['value'] = newValue);
-                }
-              });
+              if (attachListeners) {
+                prop.addListener((newValue) {
+                  widget.onDataBindingChange
+                      ?.call(fullPath, 'enumType', newValue);
+                  if (mounted) {
+                    _safeSetState(() => nestedInfo['value'] = newValue);
+                  }
+                });
+              }
               processedCount++;
             }
             break;
@@ -1655,13 +1909,15 @@ class RiveManagerState extends State<RiveManager> {
             if (prop != null) {
               nestedInfo['property'] = prop;
               nestedInfo['value'] = prop.value.toInt();
-              prop.addListener((newValue) {
-                widget.onDataBindingChange
-                    ?.call(fullPath, 'integer', newValue.toInt());
-                if (mounted) {
-                  _safeSetState(() => nestedInfo['value'] = newValue.toInt());
-                }
-              });
+              if (attachListeners) {
+                prop.addListener((newValue) {
+                  widget.onDataBindingChange
+                      ?.call(fullPath, 'integer', newValue.toInt());
+                  if (mounted) {
+                    _safeSetState(() => nestedInfo['value'] = newValue.toInt());
+                  }
+                });
+              }
               processedCount++;
             }
             break;
@@ -1678,8 +1934,11 @@ class RiveManagerState extends State<RiveManager> {
                   listItems.add({
                     'index': i,
                     'name': itemVM.name,
-                    'properties':
-                        _discoverNestedProperties(itemVM, '$fullPath[$i]'),
+                    'properties': _discoverNestedProperties(
+                      itemVM,
+                      '$fullPath[$i]',
+                      attachListeners: attachListeners,
+                    ),
                   });
                 } catch (e) {
                   LogManager.addLog(
@@ -1707,13 +1966,15 @@ class RiveManagerState extends State<RiveManager> {
             if (prop != null) {
               nestedInfo['property'] = prop;
               nestedInfo['value'] = prop.value.toInt();
-              prop.addListener((newValue) {
-                widget.onDataBindingChange
-                    ?.call(fullPath, 'symbolListIndex', newValue.toInt());
-                if (mounted) {
-                  _safeSetState(() => nestedInfo['value'] = newValue.toInt());
-                }
-              });
+              if (attachListeners) {
+                prop.addListener((newValue) {
+                  widget.onDataBindingChange
+                      ?.call(fullPath, 'symbolListIndex', newValue.toInt());
+                  if (mounted) {
+                    _safeSetState(() => nestedInfo['value'] = newValue.toInt());
+                  }
+                });
+              }
               processedCount++;
             }
             break;

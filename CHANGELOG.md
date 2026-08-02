@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.26]
+
+### Added
+- **Nested List Item Mutations**: `RiveAnimationController.updateNestedProperty` now correctly traverses and parses array indices in path strings (e.g., `tickerItems[1]/label`). This enables direct, dynamic updates of deeply nested native properties inside list ViewModels.
+- **Dynamic List Listeners**: The `RiveAnimationController.addListItem` method signature was updated to explicitly accept the `attachListeners: true` parameter, allowing newly inserted list items to opt-in to `onDataBindingChange` callbacks.
+
+### Changed
+- Fixed a bug where updating nested list item properties via `updateDataBindingProperty` failed silently due to a lack of recursive nested property path resolution.
+
 ## [1.0.25]
 
 ### Changed

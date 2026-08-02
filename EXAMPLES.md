@@ -1237,7 +1237,38 @@ When a list property is discovered, it provides the following structure:
 }
 ```
 
-> **Note:** List properties are **read-only collections** in the current API. Items are managed via the `ViewModelInstanceList` API (`add`, `remove`, `insert`, `swap`).
+### ✨ NEW: Dynamic List Mutations
+
+You can dynamically modify list elements at runtime (add, remove, reorder, clear) using the global controller. The controller caches the item view-model name so you only need to provide it once.
+
+```dart
+final c = RiveAnimationController.instance;
+
+// Add — name the item view-model once; cached per list afterwards
+c.addListItem('animationId', 'menu',
+    itemViewModel: 'listItem', // The exact view-model name for the element
+    fields: {'label': 'Breaking News', 'hoverColor': '#EFEFEF', 'order': 1},
+    attachListeners: true // Opt-in to live callbacks for this added item
+);
+
+// VM name omitted now since it's cached
+c.addListItem('animationId', 'menu', fields: {'label': 'Sports'});   
+// insert at specific index
+c.addListItem('animationId', 'menu', fields: {'label': 'Top'}, at: 0); 
+
+// Reorder / remove / clear
+c.moveListItem('animationId', 'menu', 3, 0);   // drag row 3 → top
+c.swapListItems('animationId', 'menu', 1, 2);
+c.removeListItemAt('animationId', 'menu', 2);
+c.clearList('animationId', 'menu');
+
+// Edit an existing item field in place, and read state
+c.updateListItemField('animationId', 'menu', 0, 'label', 'Updated');
+final items = c.getListItems('animationId', 'menu');   // current snapshot
+final length = c.listLength('animationId', 'menu');
+```
+
+> **Note on Listeners:** Runtime-added items get a listener-free snapshot by default. Their subsequent field changes won't auto-emit `onDataBindingChange` unless you explicitly opt-in by setting `attachListeners: true` when calling `addListItem`. This avoids memory leaks and duplicate callbacks for broadcast flow where you typically drive item values directly.
 
 ---
 

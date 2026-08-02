@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:rive_native/rive_native.dart';
-import 'dart:io' if (dart.library.html) '../helpers/io_stub.dart' as io;
+import '../helpers/io_stub.dart' if (dart.library.io) 'dart:io' as io;
 import '../helpers/log_manager.dart';
 import '../widgets/rive_manager.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +23,11 @@ class RiveAnimationController {
   final Map<String, FontAsset> _fontAssets = {};
   final Map<String, List<RenderImage>> _imageCache = {};
   final Map<String, Map<String, Map<String, dynamic>>> _propertyPathCache = {};
+
+  /// Remembers the element view-model name used for each list, keyed by
+  /// `animationId → listName → itemViewModelName`. Lets callers name the item
+  /// view-model once (on the first [addListItem]) and omit it afterwards.
+  final Map<String, Map<String, String>> _listItemViewModels = {};
 
   /// Register an animation instance
   void register(String animationId, RiveManagerState state) {
@@ -119,6 +124,7 @@ class RiveAnimationController {
     }
 
     _propertyPathCache.remove(animationId);
+    _listItemViewModels.remove(animationId);
     LogManager.addLog('Deregistered animation: $animationId', isExpected: true);
   }
 
@@ -254,7 +260,17 @@ class RiveAnimationController {
     ) {
       if (index >= path.length) return null;
 
-      final currentName = path[index];
+      String currentName = path[index];
+
+      // Handle array indices like tickerItems[1]
+      int? listIndex;
+      final bracketIndex = currentName.indexOf('[');
+      if (bracketIndex != -1 && currentName.endsWith(']')) {
+        final indexStr =
+            currentName.substring(bracketIndex + 1, currentName.length - 1);
+        listIndex = int.tryParse(indexStr);
+        currentName = currentName.substring(0, bracketIndex);
+      }
 
       for (final prop in props) {
         if (prop['name'] == currentName) {
@@ -262,6 +278,22 @@ class RiveAnimationController {
             return prop;
           }
 
+          // If it's a list and we parsed an index
+          if (prop['type'] == 'list' && listIndex != null) {
+            final listItems = prop['listItems'] as List<Map<String, dynamic>>?;
+            if (listItems != null &&
+                listIndex >= 0 &&
+                listIndex < listItems.length) {
+              final item = listItems[listIndex];
+              final itemProps =
+                  item['properties'] as List<Map<String, dynamic>>?;
+              if (itemProps != null) {
+                return findNestedProperty(itemProps, path, index + 1);
+              }
+            }
+          }
+
+          // Fallback to nestedProperties if it exists (for non-list nested structures)
           final nestedProps =
               prop['nestedProperties'] as List<Map<String, dynamic>>?;
           if (nestedProps != null) {
@@ -1136,6 +1168,248 @@ class RiveAnimationController {
   /// Get all properties for an animation
   List<Map<String, dynamic>> getProperties(String animationId) {
     return _animations[animationId]?.properties ?? [];
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DATA-BINDING LIST API — add / remove / reorder list items by animationId
+  //
+  // A Rive data-binding list is typed to a single element view-model. To add an
+  // item you name that view-model once (e.g. 'listItem') and supply a field
+  // map; the value types are auto-detected (string / number / bool / color /
+  // enum), with colors parsed through the same flexible converter used
+  // elsewhere. The item view-model name is remembered per list, so later adds
+  // can omit it. Every mutation rebuilds the cached `listItems` snapshot and
+  // fires a single ('<list>', 'list', length) data-binding change.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Number of items currently in [listName]. Returns 0 if unavailable.
+  int listLength(String animationId, String listName) =>
+      _animations[animationId]?.listLength(listName) ?? 0;
+
+  /// Snapshot of the current items in [listName] (index / name / properties),
+  /// or an empty list if unavailable. Reflects the most recent mutation.
+  List<Map<String, dynamic>> getListItems(String animationId, String listName) {
+    final state = _animations[animationId];
+    if (state == null) return const [];
+    final entry = state.properties.firstWhere(
+      (p) => p['name'] == listName && p['type'] == 'list',
+      orElse: () => <String, dynamic>{},
+    );
+    if (entry.isEmpty) return const [];
+    return (entry['listItems'] as List?)?.cast<Map<String, dynamic>>() ??
+        const [];
+  }
+
+  /// Add an item to [listName], optionally at index [at] (defaults to append).
+  ///
+  /// [itemViewModel] is the element view-model name (e.g. 'listItem'); it is
+  /// required the first time a given list is mutated and may be omitted on
+  /// later calls (the name is cached per list). [fields] maps property names to
+  /// values; types are auto-detected and colors accept the same formats as
+  /// [updateDataBindingProperty] (Color, hex/rgb strings, maps, lists).
+  ///
+  /// Returns true on success.
+  bool addListItem(
+    String animationId,
+    String listName, {
+    String? itemViewModel,
+    Map<String, dynamic> fields = const {},
+    int? at,
+    bool attachListeners = false,
+  }) {
+    final state = _animations[animationId];
+    if (state == null) {
+      LogManager.addLog(
+        'Cannot add list item: animation $animationId not found',
+        isExpected: false,
+      );
+      return false;
+    }
+
+    final vmName = itemViewModel ?? _listItemViewModels[animationId]?[listName];
+    if (vmName == null) {
+      LogManager.addLog(
+        'Cannot add item to "$listName": specify itemViewModel at least once '
+        'for animation $animationId',
+        isExpected: false,
+      );
+      return false;
+    }
+
+    final item = _createListItemInstance(state, vmName, fields);
+    if (item == null) return false;
+
+    bool ok = false;
+    try {
+      ok = state.addListItemInstance(
+        listName,
+        item,
+        at: at,
+        attachListeners: attachListeners,
+      );
+    } finally {
+      // The list retains its own reference; free the local handle either way.
+      try {
+        item.dispose();
+      } catch (_) {}
+    }
+
+    if (ok) {
+      _listItemViewModels.putIfAbsent(animationId, () => {})[listName] = vmName;
+      LogManager.addLog(
+        'Added item to list "$listName" on $animationId'
+        '${at != null ? ' at $at' : ''}',
+        isExpected: true,
+      );
+    }
+    return ok;
+  }
+
+  /// Remove the item at [index] from [listName]. Returns true on success.
+  bool removeListItemAt(String animationId, String listName, int index) =>
+      _animations[animationId]?.removeListItemAt(listName, index) ?? false;
+
+  /// Move the item at [from] to [to] in [listName], keeping other items in
+  /// order. Implemented with swaps only (no create/destroy). True on success.
+  bool moveListItem(
+    String animationId,
+    String listName,
+    int from,
+    int to,
+  ) =>
+      _animations[animationId]?.moveListItem(listName, from, to) ?? false;
+
+  /// Swap the items at [a] and [b] in [listName]. Returns true on success.
+  bool swapListItems(String animationId, String listName, int a, int b) =>
+      _animations[animationId]?.swapListItems(listName, a, b) ?? false;
+
+  /// Remove every item from [listName]. Returns true on success.
+  bool clearList(String animationId, String listName) =>
+      _animations[animationId]?.clearList(listName) ?? false;
+
+  /// Update a single [field] on the existing list item at [index] in
+  /// [listName] (in place, no reorder). Value type is auto-detected. True on
+  /// success.
+  bool updateListItemField(
+    String animationId,
+    String listName,
+    int index,
+    String field,
+    dynamic value,
+  ) {
+    final state = _animations[animationId];
+    final list = state?.listHandle(listName);
+    if (list == null) {
+      LogManager.addLog(
+        'Cannot update list item field: list "$listName" not found on $animationId',
+        isExpected: false,
+      );
+      return false;
+    }
+    if (index < 0 || index >= list.length) {
+      LogManager.addLog(
+        'Cannot update list item field: index $index out of bounds '
+        '(len ${list.length}) for "$listName" on $animationId',
+        isExpected: false,
+      );
+      return false;
+    }
+    final ok = _applyFieldToInstance(list.instanceAt(index), field, value);
+    if (ok) state!.refreshListProperty(listName);
+    return ok;
+  }
+
+  /// Build a populated list-item [ViewModelInstance] from its view-model name.
+  /// Returns null (and logs) if the view-model or instance can't be created.
+  ViewModelInstance? _createListItemInstance(
+    RiveManagerState state,
+    String itemViewModelName,
+    Map<String, dynamic> fields,
+  ) {
+    final file = state.file;
+    if (file == null) {
+      LogManager.addLog(
+        'Cannot create list item: no Rive file loaded',
+        isExpected: false,
+      );
+      return null;
+    }
+    final vm = file.viewModelByName(itemViewModelName);
+    if (vm == null) {
+      LogManager.addLog(
+        'Cannot create list item: view-model "$itemViewModelName" not found',
+        isExpected: false,
+      );
+      return null;
+    }
+    final instance = vm.createInstance();
+    if (instance == null) {
+      LogManager.addLog(
+        'Cannot create list item: createInstance() returned null for "$itemViewModelName"',
+        isExpected: false,
+      );
+      return null;
+    }
+    fields.forEach((field, value) {
+      _applyFieldToInstance(instance, field, value);
+    });
+    return instance;
+  }
+
+  /// Set [field] on a list-item [ViewModelInstance] by auto-detecting its type.
+  /// Probes each typed accessor (a wrong-typed field returns null) and writes
+  /// the first match. Returns true if the field was written.
+  bool _applyFieldToInstance(
+    ViewModelInstance item,
+    String field,
+    dynamic value,
+  ) {
+    // String
+    final s = item.string(field);
+    if (s != null) {
+      s.value = value?.toString() ?? '';
+      return true;
+    }
+    // Color (before number: colors accept ints/strings too)
+    final c = item.color(field);
+    if (c != null) {
+      c.value = _flexibleColorConvert(value);
+      return true;
+    }
+    // Number / integer
+    final n = item.number(field);
+    if (n != null) {
+      final d = value is num ? value.toDouble() : double.tryParse('$value');
+      if (d != null) {
+        n.value = d;
+        return true;
+      }
+    }
+    // Boolean
+    final b = item.boolean(field);
+    if (b != null && value is bool) {
+      b.value = value;
+      return true;
+    }
+    // Enum
+    final e = item.enumerator(field);
+    if (e != null) {
+      e.value = value.toString();
+      return true;
+    }
+    // Trigger (fire when value is truthy)
+    final t = item.trigger(field);
+    if (t != null) {
+      if (value == true) t.trigger();
+      return true;
+    }
+
+    LogManager.addLog(
+      'List item field "$field" not found or value type mismatch '
+      '(${value.runtimeType})',
+      isExpected: false,
+    );
+    return false;
   }
 
   // ═════════════════════════════════════════════════════════════════════════════════════

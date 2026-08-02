@@ -59,8 +59,8 @@ base class HeadlessRivePainter extends RenderTexturePainter {
   /// Paints directly to the Flutter [Canvas].
   /// Overridden to provide missing dartdoc.
   @override
-  void paintCanvas(Canvas canvas, Size size) {
-    super.paintCanvas(canvas, size);
+  void paintCanvas(Canvas canvas, Offset offset, Size size) {
+    super.paintCanvas(canvas, offset, size);
   }
 
   /// Renders the Rive artboard into the GPU texture and advances the animation.
