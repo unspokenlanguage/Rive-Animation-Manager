@@ -32,6 +32,9 @@ class RiveAnimationController {
   /// Register an animation instance
   void register(String animationId, RiveManagerState state) {
     _animations[animationId] = state;
+    // Paths cached for an earlier registration point into its view model,
+    // not this one's: a write through them would land on the old instance.
+    _propertyPathCache.remove(animationId);
     LogManager.addLog(
       'Registered animation: $animationId',
       isExpected: true,
@@ -54,24 +57,11 @@ class RiveAnimationController {
 
   /// Determine the type of a Rive input
   String getInputType(Input input) {
-    try {
-      final trigger = input as TriggerInput;
-      trigger.fire();
-      return 'trigger';
-    } catch (_) {}
-
-    try {
-      final bool = input as BooleanInput;
-      final _ = bool.value;
-      return 'bool';
-    } catch (_) {}
-
-    try {
-      final number = input as NumberInput;
-      final _ = number.value;
-      return 'number';
-    } catch (_) {}
-
+    // Checked by type: the cast-and-try version fired every trigger it was
+    // asked about.
+    if (input is TriggerInput) return 'trigger';
+    if (input is BooleanInput) return 'bool';
+    if (input is NumberInput) return 'number';
     return 'unknown';
   }
 
@@ -106,8 +96,20 @@ class RiveAnimationController {
     };
   }
 
-  /// Deregister an animation and clean up resources
-  void deregister(String animationId) {
+  /// Deregister an animation and clean up resources.
+  ///
+  /// [owner], when given, is the state deregistering itself: if a newer mount
+  /// has registered the same [animationId] since, this does nothing. A widget
+  /// that remounts with the same id registers the new state before the old
+  /// one is disposed, and removing by id alone left the new one "not found".
+  void deregister(String animationId, {RiveManagerState? owner}) {
+    if (owner != null && !identical(_animations[animationId], owner)) {
+      LogManager.addLog(
+        'Kept animation $animationId: a newer mount owns it',
+        isExpected: true,
+      );
+      return;
+    }
     _animations.remove(animationId);
     _imageAssets.remove(animationId);
     _fontAssets.remove(animationId);
@@ -386,6 +388,10 @@ class RiveAnimationController {
           if (propertyInstance is ViewModelInstanceColor) {
             try {
               final colorValue = _flexibleColorConvert(newValue);
+              if (colorValue == null) {
+                // Not a colour: nothing written, and the caller hears so.
+                return false;
+              }
 
               propertyInstance.value = colorValue;
               propertyInfo['value'] = colorValue;
@@ -1373,7 +1379,9 @@ class RiveAnimationController {
     // Color (before number: colors accept ints/strings too)
     final c = item.color(field);
     if (c != null) {
-      c.value = _flexibleColorConvert(value);
+      final color = _flexibleColorConvert(value);
+      if (color == null) return false;
+      c.value = color;
       return true;
     }
     // Number / integer
@@ -1435,10 +1443,21 @@ class RiveAnimationController {
     };
   }
 
-  Color _flexibleColorConvert(dynamic value) {
+  /// The colour parser, for tests.
+  @visibleForTesting
+  Color? debugParseColor(dynamic value) => _flexibleColorConvert(value);
+
+  /// Null when [value] is not a colour. It used to be white, which the caller
+  /// then wrote and reported as a success.
+  Color? _flexibleColorConvert(dynamic value) {
     // ✅ Already a Color object (has normalized getters)
     if (value is Color) {
       return value;
+    }
+
+    // 0xAARRGGBB, as Color(int) takes it.
+    if (value is int) {
+      return Color(value);
     }
 
     // ✅ String formats
@@ -1456,16 +1475,15 @@ class RiveAnimationController {
       return _listToColor(value);
     }
 
-    // ✅ Fallback - FIX: Use Colors.white (not materialColor.Colors.white)
     LogManager.addLog(
-      'Unknown color format: ${value.runtimeType}. Defaulting to white.',
+      'Unknown color format: ${value.runtimeType}. Not applied.',
       isExpected: false,
     );
-    return Colors.white; // ← FIXED: Just Colors.white
+    return null;
   }
 
   /// Convert string to Color
-  Color _stringToColor(String input) {
+  Color? _stringToColor(String input) {
     final trimmed = input.trim().toLowerCase();
 
     if (trimmed.startsWith('#') || trimmed.startsWith('0x')) {
@@ -1484,7 +1502,7 @@ class RiveAnimationController {
   }
 
   /// Convert hex string to Color
-  Color _hexToColor(String hex) {
+  Color? _hexToColor(String hex) {
     try {
       String cleanHex =
           hex.replaceFirst('0x', '').replaceFirst('#', '').toUpperCase();
@@ -1507,12 +1525,12 @@ class RiveAnimationController {
       return Color(colorInt);
     } catch (e) {
       LogManager.addLog('Error parsing hex color $hex: $e', isExpected: false);
-      return Colors.white;
+      return null;
     }
   }
 
   /// Convert RGB string to Color
-  Color _rgbToColor(String rgb) {
+  Color? _rgbToColor(String rgb) {
     try {
       final match = RegExp(r'rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)')
           .firstMatch(rgb.toLowerCase());
@@ -1528,12 +1546,12 @@ class RiveAnimationController {
       return Color.fromARGB(255, r, g, b);
     } catch (e) {
       LogManager.addLog('Error parsing RGB color $rgb: $e', isExpected: false);
-      return Colors.white;
+      return null;
     }
   }
 
   /// Convert RGBA string to Color
-  Color _rgbaToColor(String rgba) {
+  Color? _rgbaToColor(String rgba) {
     try {
       final match = RegExp(
               r'rgba\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)')
@@ -1560,12 +1578,12 @@ class RiveAnimationController {
     } catch (e) {
       LogManager.addLog('Error parsing RGBA color $rgba: $e',
           isExpected: false);
-      return Colors.white;
+      return null;
     }
   }
 
   /// Convert named color string to Color
-  Color _namedColorToColor(String name) {
+  Color? _namedColorToColor(String name) {
     final colorMap = {
       'red': Colors.red,
       'blue': Colors.blue,
@@ -1590,22 +1608,26 @@ class RiveAnimationController {
       return colorMap[name]!;
     }
 
-    LogManager.addLog('Unknown named color: $name. Using white.',
+    LogManager.addLog('Unknown named color: $name. Not applied.',
         isExpected: false);
-    return Colors.white;
+    return null;
   }
 
   /// Convert Map to Color
-  Color _mapToColor(Map<String, dynamic> map) {
+  Color? _mapToColor(Map<String, dynamic> map) {
     try {
       final r = (map['r'] ?? map['red'] ?? 1.0);
       final g = (map['g'] ?? map['green'] ?? 1.0);
       final b = (map['b'] ?? map['blue'] ?? 1.0);
-      final a = (map['a'] ?? map['alpha'] ?? 1.0);
 
       bool isNormalized = (r is double && r <= 1.0) ||
           (g is double && g <= 1.0) ||
           (b is double && b <= 1.0);
+
+      // A missing alpha is opaque in either scale. The 1.0 default was read
+      // as 1/255 for a 0-255 map, so {r: 255, g: 0, b: 0} drew nearly
+      // invisible.
+      final a = map['a'] ?? map['alpha'] ?? (isNormalized ? 1.0 : 255);
 
       int rInt, gInt, bInt, aInt;
 
@@ -1634,12 +1656,12 @@ class RiveAnimationController {
       return Color.fromARGB(aInt, rInt, gInt, bInt);
     } catch (e) {
       LogManager.addLog('Error parsing map color: $e', isExpected: false);
-      return Colors.white;
+      return null;
     }
   }
 
   /// Convert List to Color
-  Color _listToColor(List list) {
+  Color? _listToColor(List list) {
     try {
       if (list.isEmpty || list.length < 3) {
         throw Exception('List must have at least 3 elements [R, G, B]');
@@ -1671,7 +1693,7 @@ class RiveAnimationController {
       return Color.fromARGB(aInt, rInt, gInt, bInt);
     } catch (e) {
       LogManager.addLog('Error parsing list color: $e', isExpected: false);
-      return Colors.white;
+      return null;
     }
   }
 }

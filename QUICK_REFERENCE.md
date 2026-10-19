@@ -1,11 +1,11 @@
-# Rive Animation Manager - Quick Reference (v1.0.23+)
+# Rive Animation Manager - Quick Reference (v1.0.27+)
 
 ## Installation
 
 Add to `pubspec.yaml`:
 ```yaml
 dependencies:
-  rive_animation_manager: ^1.0.23
+  rive_animation_manager: ^1.0.27
 ```
 
 ## Basic Import
@@ -371,6 +371,10 @@ Supported data binding property types:
 
 | Version | Release | Key Features |
 |---------|---------|-----------------|
+| 1.0.27  | 2026-10-19 | List paths and listeners stay right after list changes; clean rebind on file swap; colour failures reported |
+| 1.0.26  | 2026-08-02 | Nested list item paths, WASM compatibility, attachListeners |
+| 1.0.25  | 2026-07-31 | suppressDataBindingCallbacksUntilReady |
+| 1.0.24  | 2026-07-04 | disposeExternalFile for shared caches |
 | 1.0.23  | 2026-06-23 | Dependency Bump & Stabilized Shared Textures |
 | 1.0.22  | 2026-06-11 | Audio Events & Shared Texture API ✨ |
 | 1.0.17  | 2026-05-15 | Headless Texture Mode & Font API |

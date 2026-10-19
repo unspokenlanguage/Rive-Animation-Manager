@@ -1,30 +1,21 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// The example app needs a GPU to draw a .riv, so this checks only what runs
+// without one: the package's public API is reachable from the example, and an
+// unknown animation id is refused rather than crashing. (It was Flutter's
+// stock counter test, which this app has no counter for.)
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:rive_animation_manager_example/main.dart';
+import 'package:rive_animation_manager/rive_animation_manager.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
-
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  test('an unknown animation id is refused, not a crash', () async {
+    final controller = RiveAnimationController.instance;
+    expect(controller.getAnimationState('no-such-animation'), isNull);
+    expect(
+      await controller.updateDataBindingProperty(
+          'no-such-animation', 'name', 'value'),
+      isFalse,
+    );
+    expect(controller.removeListItemAt('no-such-animation', 'items', 0),
+        isFalse);
   });
 }

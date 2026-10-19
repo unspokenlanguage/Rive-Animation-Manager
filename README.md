@@ -86,7 +86,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  rive_animation_manager: ^1.0.23
+  rive_animation_manager: ^1.0.27
 ```
 
 Then run:
@@ -197,7 +197,15 @@ await controller.updateDataBindingProperty('myAnimation', 'color', [0.2431, 0.76
 
 // Named colors
 await controller.updateDataBindingProperty('myAnimation', 'color', 'teal');
+
+// An int, 0xAARRGGBB (v1.0.27+)
+await controller.updateDataBindingProperty('myAnimation', 'color', 0xFF3EC293);
 ```
+
+A missing alpha is opaque in either scale (`{'r': 255, 'g': 0, 'b': 0}` is solid red).
+A value that is not a colour (`'#GGHHII'`, `'rgb(1, 2)'`, an unknown name) is **not applied**:
+the call returns `false` and the log says why. Before v1.0.27 it was written as white and
+reported success, so check the return value where a colour comes from user input or a feed.
 
 ### Data Binding
 
@@ -229,6 +237,63 @@ await controller.updateDataBindingProperty('myAnimation', 'count', 42);
 await controller.updateDataBindingProperty('myAnimation', 'isVisible', true);
 await controller.updateDataBindingProperty('myAnimation', 'color', Color(0xFF00FF00));
 ```
+
+#### Keeping saved values: muting the start-up echo
+
+When the file binds, every property reports its default through `onDataBindingChange`. If your
+app saves what it receives there, those defaults would overwrite values the user already set.
+Mute them until you have applied your own:
+
+```dart
+RiveManager(
+  animationId: 'lowerThird',
+  riveFilePath: 'assets/animations/lower_third.riv',
+  suppressDataBindingCallbacksUntilReady: true,
+  onInit: (_) async {
+    final controller = RiveAnimationController.instance;
+    await controller.updateDataBindingProperty('lowerThird', 'name', savedName);
+    // From here on, changes are reported again.
+    controller.markDataBindingReady('lowerThird');
+  },
+  onDataBindingChange: (name, type, value) => save(name, value),
+)
+```
+
+Every property type is muted, nested ones included (v1.0.27 closed the gap for nested enums and
+integers and for `symbolListIndex`).
+
+### Lists
+
+A view-model list (for example a leaderboard's `players`) can be edited in place: rows keep their
+identity, so a running animation is not restarted.
+
+```dart
+final controller = RiveAnimationController.instance;
+
+// Add a row. Name the item view model the first time; it is remembered per list.
+controller.addListItem(
+  'leaderboard',
+  'players',
+  itemViewModel: 'PlayerRow',
+  fields: {'name': 'Alex', 'score': 120, 'color': '#3EC293'},
+  attachListeners: true, // report changes inside rows through onDataBindingChange
+);
+
+controller.moveListItem('leaderboard', 'players', 3, 0);
+controller.swapListItems('leaderboard', 'players', 0, 1);
+controller.removeListItemAt('leaderboard', 'players', 2);
+controller.updateListItemField('leaderboard', 'players', 0, 'score', 150);
+controller.clearList('leaderboard', 'players');
+
+// A row's field by path also works:
+await controller.updateNestedProperty('leaderboard', 'players[0]/name', 'Sam');
+```
+
+Each call returns `false` (and logs why) for an unknown list or an index out of range.
+After any change the package clears its cached paths for that animation, so `players[2]/name`
+always means the row now at index 2. Row listeners are re-attached at the rows' current indices,
+one per row, so the paths reported to `onDataBindingChange` stay right after a move or remove
+(v1.0.27; earlier versions reported the index a row was added at).
 
 ### Image Replacement
 
@@ -523,6 +588,9 @@ Global singleton for managing all Rive animations.
 
 **Key Methods:**
 - `register(String id, RiveManagerState state)` - Register an animation
+- `deregister(String id, {RiveManagerState? owner})` - Remove an animation; with `owner`, only if that state still owns the id (the widget does this itself)
+- `markDataBindingReady(String id)` - End the start-up mute set by `suppressDataBindingCallbacksUntilReady`
+- `addListItem`, `removeListItemAt`, `moveListItem`, `swapListItems`, `clearList`, `updateListItemField` - Edit a view-model list in place (see [Lists](#lists))
 - `updateBool(String id, String name, bool value)` - Update boolean input
 - `updateNumber(String id, String name, double value)` - Update number input
 - `triggerInput(String id, String name)` - Fire a trigger
@@ -546,6 +614,8 @@ Flutter widget for displaying Rive animations.
 - `animationId` - **Unique identifier** for this animation instance (enables global control)
 - `riveFilePath` - Path to .riv file in assets
 - `externalFile` - External Rive file (alternative to riveFilePath)
+- `disposeExternalFile` - Default `true`. Pass `false` when the File is shared or cached and you own its lifetime; otherwise unmounting one widget disposes it under every other user
+- `suppressDataBindingCallbacksUntilReady` - Mute the start-up echo until `markDataBindingReady` (see above)
 - `fileLoader` - Custom file loader
 - `enableImageReplacement` - Enable dynamic image and font updates
 - `renderMode` - `RiveRenderMode.widget` (default) or `RiveRenderMode.texture`
@@ -562,13 +632,16 @@ Flutter widget for displaying Rive animations.
 - `onNativeTexturePointer` - Called with native texture pointer address (texture mode)
 - `onRendererPointer` - Called with MetalTextureRenderer pointer address (texture mode)
 - `onAudioEvent` - Called when an audio event is emitted
+- `onAnimationComplete` - Called when the state machine is done (fixed in v1.0.27: it fired on every input change)
 
 ## Best Practices
 
 1. **Use Unique Animation IDs**: Always provide unique identifiers for each animation instance
 2. **Cache Images**: For animations with many image updates, preload and cache images
 3. **Handle Errors**: Check return values and use logging to debug issues
-4. **Dispose Properly**: The package handles cleanup automatically in dispose()
+4. **Dispose Properly**: The package handles cleanup automatically in dispose(). A shared or cached `externalFile` needs `disposeExternalFile: false`
+   - **Remounting with the same id is safe**: a widget rebuilt under a new key registers before the old one is disposed, and the old one leaves the newer registration alone (v1.0.27)
+   - **Check return values**: updates return `false` for an unknown property, a list index out of range or a value that is not a colour
 5. **Nested Properties**: Use path caching for frequently updated nested properties
 6. **Enable Logging in Debug**: Use LogManager to debug issues during development
 
@@ -593,8 +666,8 @@ Flutter widget for displaying Rive animations.
 
 For issues, feature requests, or questions:
 
-- **GitHub Repository:** [https://github.com/unspokenlanguage/RiveAnimation-Manager](https://github.com/unspokenlanguage/RiveAnimation-Manager)
-- **GitHub Issues:** [https://github.com/unspokenlanguage/RiveAnimation-Manager/issues](https://github.com/unspokenlanguage/RiveAnimation-Manager/issues)
+- **GitHub Repository:** [https://github.com/unspokenlanguage/Rive-Animation-Manager](https://github.com/unspokenlanguage/Rive-Animation-Manager)
+- **GitHub Issues:** [https://github.com/unspokenlanguage/Rive-Animation-Manager/issues](https://github.com/unspokenlanguage/Rive-Animation-Manager/issues)
 - **pub.dev:** [https://pub.dev/packages/rive_animation_manager](https://pub.dev/packages/rive_animation_manager)
 
 ### Getting Help
@@ -632,7 +705,21 @@ This package is licensed under the MIT License. See LICENSE file for details.
 
 ## Changelog
 
-### v1.0.23 (Current)
+The full history is in [CHANGELOG.md](CHANGELOG.md).
+
+### v1.0.27 (Current)
+- Writes after a list change land on the right row (the path cache is cleared on every list change)
+- List row listeners are released and report the row's current index
+- A file swapped in place starts a clean binding; load failures are logged
+- The start-up mute covers every property type, nested ones included
+- `deregister` leaves a newer mount's registration alone; `onAnimationComplete` fires when done
+- A value that is not a colour returns `false` instead of painting white; ints accepted
+- First tests (`test/`)
+
+### v1.0.24 – v1.0.26
+- `disposeExternalFile` for cached files; nested list item paths (`items[1]/label`); `attachListeners` on `addListItem`; WASM compatibility. See CHANGELOG.md.
+
+### v1.0.23
 - Upgraded to `rive ^0.14.9` and `rive_native ^0.1.9`
 - Stabilized Shared Texture API (Experimental tag removed)
 

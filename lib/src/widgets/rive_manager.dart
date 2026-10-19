@@ -254,6 +254,51 @@ class RiveManagerState extends State<RiveManager> {
   ///
   /// The list retains its own reference, so the caller owns and should dispose
   /// the passed [item] afterwards. Returns false if the list is missing.
+  /// Lists whose rows a caller asked to listen to ([addListItemInstance]'s
+  /// `attachListeners`), with the property entries carrying those listeners.
+  /// [refreshListProperty] clears and re-attaches them after every change, so
+  /// they never pile up and always report the row's current index: attached
+  /// once per insert, they were never released and kept the index they were
+  /// added at.
+  final Map<String, List<Map<String, dynamic>>> _listRowListeners = {};
+
+  /// Clears the listeners under [propInfo] without disposing the handles: a
+  /// consumer may still hold a handle from an earlier `listItems` snapshot.
+  void _clearListenersRecursive(Map<String, dynamic> propInfo) {
+    final prop = propInfo['property'];
+    if (prop != null && prop is! ViewModelInstance) {
+      try {
+        (prop as dynamic).clearListeners();
+      } catch (_) {
+        // Lists, images and artboards carry no value listeners.
+      }
+    }
+    final nested = propInfo['nestedProperties'];
+    if (nested is List) {
+      for (final n in nested) {
+        if (n is Map<String, dynamic>) _clearListenersRecursive(n);
+      }
+    }
+  }
+
+  /// Forgets the current binding's entries before a new discovery: their
+  /// listeners are cleared (the handles are not disposed, a consumer may hold
+  /// one), and the entry list and both path caches are emptied.
+  void _releaseDataBindingEntries() {
+    for (final rows in _listRowListeners.values) {
+      for (final p in rows) {
+        _clearListenersRecursive(p);
+      }
+    }
+    _listRowListeners.clear();
+    for (final propInfo in _properties) {
+      _clearListenersRecursive(propInfo);
+    }
+    _properties.clear();
+    _propertyCache.clear();
+    RiveAnimationController.instance.clearPropertyCache(widget.animationId);
+  }
+
   bool addListItemInstance(
     String listName,
     ViewModelInstance item, {
@@ -274,14 +319,11 @@ class RiveManagerState extends State<RiveManager> {
       } else {
         list.insert(at < 0 ? 0 : at, item);
       }
-      
+
+      // The listeners themselves are attached by refreshListProperty below,
+      // for every row at its current index.
       if (attachListeners) {
-        final index = at == null || at >= list.length ? list.length - 1 : (at < 0 ? 0 : at);
-        _discoverNestedProperties(
-          list.instanceAt(index),
-          '$listName[$index]',
-          attachListeners: true,
-        );
+        _listRowListeners.putIfAbsent(listName, () => []);
       }
     } catch (e) {
       LogManager.addLog(
@@ -407,18 +449,35 @@ class RiveManagerState extends State<RiveManager> {
     final listProp = vmInstance.list(listName);
     if (listProp == null) return;
 
+    // Cached paths such as "list[2]/label" point at the rows as they were: a
+    // write through one after an insert, remove or move lands on the wrong
+    // row (or a removed one) and still reports success.
+    RiveAnimationController.instance.clearPropertyCache(widget.animationId);
+
+    // Rows someone listens to: drop the old listeners, attach fresh ones at
+    // the rows' current indices below.
+    final listened = _listRowListeners[listName];
+    if (listened != null) {
+      for (final p in listened) {
+        _clearListenersRecursive(p);
+      }
+      listened.clear();
+    }
+
     final List<Map<String, dynamic>> listItems = [];
     for (int i = 0; i < listProp.length; i++) {
       try {
         final itemVM = listProp.instanceAt(i);
+        final props = _discoverNestedProperties(
+          itemVM,
+          '$listName[$i]',
+          attachListeners: listened != null,
+        );
+        listened?.addAll(props);
         listItems.add({
           'index': i,
           'name': itemVM.name,
-          'properties': _discoverNestedProperties(
-            itemVM,
-            '$listName[$i]',
-            attachListeners: false,
-          ),
+          'properties': props,
         });
       } catch (e) {
         LogManager.addLog(
@@ -558,9 +617,18 @@ class RiveManagerState extends State<RiveManager> {
       }
     }
 
-    RiveAnimationController.instance.deregister(widget.animationId);
+    // As the owner: a newer mount with the same id keeps its registration.
+    RiveAnimationController.instance
+        .deregister(widget.animationId, owner: this);
 
     _inputChangedHandler?.dispose();
+
+    for (final rows in _listRowListeners.values) {
+      for (final p in rows) {
+        _clearListenersRecursive(p);
+      }
+    }
+    _listRowListeners.clear();
 
     for (var propInfo in _properties) {
       _disposeProperty(propInfo);
@@ -1228,6 +1296,12 @@ class RiveManagerState extends State<RiveManager> {
       }
 
       LogManager.markBuildPhaseStart();
+      // The old machine stops reporting here: left attached, its events kept
+      // arriving as this widget's. (The old controller itself is not disposed
+      // here: the widget may still draw with it until the rebuild below.)
+      try {
+        _controller?.stateMachine.removeEventListener(_onRiveEvent);
+      } catch (_) {}
       _controller = RiveWidgetController(_file!);
       _isInitialized = false;
       inputs.clear();
@@ -1266,6 +1340,11 @@ class RiveManagerState extends State<RiveManager> {
 
         LogManager.markBuildPhaseEnd();
       }).catchError((e, stack) {
+        // Said, not swallowed: the widget otherwise just never initialized.
+        LogManager.addLog(
+          'Failed to set up external file for ${widget.animationId}: $e',
+          isExpected: false,
+        );
         LogManager.markBuildPhaseEnd();
       });
     } catch (e) {
@@ -1388,8 +1467,10 @@ class RiveManagerState extends State<RiveManager> {
       widget.onInputChange?.call(index, input.name, input.value);
     }
 
+    // Complete is isDone == true. It read `== false`, so the callback fired on
+    // every input change of a running machine and never when it finished.
     // ignore: invalid_use_of_internal_member
-    if (_controller?.stateMachine.isDone == false) {
+    if (_controller?.stateMachine.isDone == true) {
       LogManager.addLog(
         'Animation complete for: ${widget.animationId}',
         isExpected: true,
@@ -1427,6 +1508,12 @@ class RiveManagerState extends State<RiveManager> {
     if (widget.suppressDataBindingCallbacksUntilReady) {
       _dataBindingSuppressed = true;
     }
+
+    // A re-discovery (another file, artboard or view model) starts from
+    // nothing. Discovery only appends and lookups take the first match, so
+    // the previous binding's entries shadowed the new ones: writes landed on
+    // the old view model, off screen, and reported success.
+    _releaseDataBindingEntries();
 
     if (_controller == null) {
       LogManager.addLog(
@@ -1677,15 +1764,21 @@ class RiveManagerState extends State<RiveManager> {
       } else if (type == DataType.list) {
         final listProp = vmInstance.list(name);
         if (listProp != null) {
-          // Discover list items as nested ViewModelInstances
+          // Discover list items as nested ViewModelInstances. Their rows get
+          // listeners here, so the list counts as listened: every later
+          // change re-attaches them at the rows' current indices
+          // (refreshListProperty) instead of leaving these behind.
           final List<Map<String, dynamic>> listItems = [];
+          final rowListeners = _listRowListeners.putIfAbsent(name, () => []);
           for (int i = 0; i < listProp.length; i++) {
             try {
               final itemVM = listProp.instanceAt(i);
+              final props = _discoverNestedProperties(itemVM, '$name[$i]');
+              rowListeners.addAll(props);
               listItems.add({
                 'index': i,
                 'name': itemVM.name,
-                'properties': _discoverNestedProperties(itemVM, '$name[$i]'),
+                'properties': props,
               });
             } catch (e) {
               LogManager.addLog(
@@ -1732,8 +1825,9 @@ class RiveManagerState extends State<RiveManager> {
         });
 
         prop?.addListener((value) {
-          widget.onDataBindingChange
-              ?.call(name, 'symbolListIndex', value.toInt());
+          // Through the suppression gate, as every other type is: a direct
+          // call let the init echo overwrite a consumer's saved value.
+          _emitDataBindingChange(name, 'symbolListIndex', value.toInt());
         });
       } else if (type == DataType.none) {
         LogManager.addLog(
@@ -1893,8 +1987,7 @@ class RiveManagerState extends State<RiveManager> {
               nestedInfo['enumTypeName'] = prop.enumType;
               if (attachListeners) {
                 prop.addListener((newValue) {
-                  widget.onDataBindingChange
-                      ?.call(fullPath, 'enumType', newValue);
+                  _emitDataBindingChange(fullPath, 'enumType', newValue);
                   if (mounted) {
                     _safeSetState(() => nestedInfo['value'] = newValue);
                   }
@@ -1911,8 +2004,7 @@ class RiveManagerState extends State<RiveManager> {
               nestedInfo['value'] = prop.value.toInt();
               if (attachListeners) {
                 prop.addListener((newValue) {
-                  widget.onDataBindingChange
-                      ?.call(fullPath, 'integer', newValue.toInt());
+                  _emitDataBindingChange(fullPath, 'integer', newValue.toInt());
                   if (mounted) {
                     _safeSetState(() => nestedInfo['value'] = newValue.toInt());
                   }
@@ -1968,8 +2060,8 @@ class RiveManagerState extends State<RiveManager> {
               nestedInfo['value'] = prop.value.toInt();
               if (attachListeners) {
                 prop.addListener((newValue) {
-                  widget.onDataBindingChange
-                      ?.call(fullPath, 'symbolListIndex', newValue.toInt());
+                  _emitDataBindingChange(
+                      fullPath, 'symbolListIndex', newValue.toInt());
                   if (mounted) {
                     _safeSetState(() => nestedInfo['value'] = newValue.toInt());
                   }

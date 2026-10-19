@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.27]
+
+### Fixed
+- **Writes after a list change no longer land on the wrong row.** The property path cache (`list[2]/label`) is cleared on every list mutation and on re-register; before, a write after an insert, remove or move went to a moved or removed item and still returned true.
+- **List row listeners are released and keep the right path.** Rows are listened to once, at their current index: every list change clears the old listeners and attaches fresh ones. Before, `attachListeners: true` added a listener per insert that was never released, and every listener kept the index it was attached at.
+- **A file swapped in place starts a clean binding.** Re-discovery clears the previous binding's entries, listeners and caches, and the old state machine's event listener is removed. Before, entries from the old view model shadowed the new ones, so writes landed off screen and reported success. Load failures are now logged instead of swallowed.
+- **Init echoes are suppressed for every type.** Top-level and nested `symbolListIndex`, nested enum and nested integer listeners now go through `suppressDataBindingCallbacksUntilReady` like the others, so they can no longer overwrite a consumer's saved values at load.
+- **`deregister` no longer removes a newer mount.** The widget deregisters as the owner, so a remount with the same `animationId` keeps its registration. `deregister(id)` without an owner works as before.
+- **`onAnimationComplete` fires when the state machine is done.** The check was inverted: it fired on every input change of a running machine.
+- **A value that is not a colour is not applied.** The update returns false instead of writing white and returning true. A 0-255 map without alpha is opaque (it was alpha 1/255). An `int` (`0xAARRGGBB`) is accepted.
+- **`getInputType` no longer fires the trigger it inspects.**
+
+### Added
+- Tests (`test/rive_animation_controller_test.dart`): colour parsing and registry ownership.
+
 ## [1.0.26]
 
 ### Added
@@ -12,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dynamic List Listeners**: The `RiveAnimationController.addListItem` method signature was updated to explicitly accept the `attachListeners: true` parameter, allowing newly inserted list items to opt-in to `onDataBindingChange` callbacks.
 
 ### Changed
-- Fixed a bug where updating nested list item properties via `updateDataBindingProperty` failed silently due to a lack of recursive nested property path resolution.
+- Fixed a bug where updating nested list item properties via `updateNestedProperty` failed silently due to a lack of recursive nested property path resolution.
 
 ## [1.0.25]
 
